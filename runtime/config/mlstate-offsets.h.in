@@ -1,0 +1,13 @@
+/* mlstate-offsets.h
+ *
+ * COPYRIGHT (c) 2019 The Fellowship of SML/NJ (http://www.smlnj.org)
+ * All rights reserved.
+ *
+ * NOTE: this file is generated --- do not edit!!!
+ */
+#ifndef _MLSTATE_OFFSETS_
+#define _MLSTATE_OFFSETS_
+
+#define VProcOffMSP @VProcOffMSP@
+
+#endif /* !_MLSTATE_OFFSETS_ */

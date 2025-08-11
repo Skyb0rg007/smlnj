@@ -182,3 +182,4 @@ v-arm64-*
 *.amd64-darwin
 *.amd64-linux
 *.arm64-darwin
+_build
