@@ -1,0 +1,35 @@
+/* ml-sizes.h
+ *
+ * COPYRIGHT (c) 2019 The Fellowship of SML/NJ (http://www.smlnj.org)
+ * All rights reserved.
+ *
+ * NOTE: this file is generated --- do not edit!!!
+ */
+
+#ifndef _ML_SIZES_
+#define _ML_SIZES_
+
+#define WORD_SZB           @WORD_SZB@
+#define ADDR_SZB           @CMAKE_SIZEOF_VOID_P@
+#define REALD_SZB          @REALD_SZB@
+#define BITS_PER_WORD      @BITS_PER_WORD@
+#define LOG_BITS_PER_WORD  @LOG_BITS_PER_WORD@
+#define LOG_BYTES_PER_WORD @LOG_BYTES_PER_WORD@
+
+#define BYTE_ORDER_@BYTE_ORDER@
+
+#ifndef _ASM_
+typedef @I16@ Int16_t;
+typedef unsigned @I16@ Unsigned16_t;
+typedef @I32@ Int32_t;
+typedef unsigned @I32@ Unsigned32_t;
+typedef @I64@ Int64_t;
+typedef unsigned @I64@ Unsigned64_t;
+
+typedef unsigned char Byte_t;
+typedef Unsigned@BITS_PER_WORD@_t Word_t;
+typedef Int@BITS_PER_WORD@_t      Int_t;
+typedef Unsigned@BITS_PER_WORD@_t Addr_t;
+#endif
+
+#endif /* !_ML_SIZES_ */
