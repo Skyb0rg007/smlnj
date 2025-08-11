@@ -29,6 +29,11 @@ int main (void)
     f = OpenFile (DST_FILE, NIL(char *));
 
     fprintf (f, "\n");
+    fprintf (f, "#include <signal.h>\n");
+    fprintf (f, "#include \"ml-base.h\"\n");
+    fprintf (f, "#include \"system-signals.h\"\n");
+
+    fprintf (f, "\n");
     fprintf (f, "PVT sys_const_t SigInfo[NUM_SIGS] = {\n");
     for (i = 0;  i < sigInfo->numSysSigs;  i++) {
 	fprintf(f, "    { %s, \"%s\" },\n",
