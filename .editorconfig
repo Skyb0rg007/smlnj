@@ -1,0 +1,21 @@
+# COPYRIGHT (c) 2025 The Fellowship of SML/NJ (https://smlnj.org)
+# All rights reserved.
+#
+# EditorConfig coding style for SML/NJ.
+# https://editorconfig.org/
+#
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_size = 4
+tab_width = 8
+
+[*.{sml,sig,cm,lex,grm,sh,c,h}]
+indent_style = space
+
+[{M,m}akefile,mk.*]
+indent_style = tab
