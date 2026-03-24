@@ -1,0 +1,27 @@
+Source: smlnj
+Section: devel
+Priority: optional
+Maintainer: Skye Soss <skye@soss.website>
+Build-Depends: debhelper-compat (= 13)
+Build-Depends-Indep: ghostscript,
+                     latexmk,
+                     texlive-binaries,
+                     texlive-plain-generic,
+                     texlive-latex-base,
+                     texlive-latex-extra,
+                     texlive-latex-recommended
+Standards-Version: 4.7.2
+Homepage: https://smlnj.org/
+Vcs-Git: https://github.com/smlnj/smlnj.git
+Vcs-Browser: https://github.com/smlnj/smlnj
+Rules-Requires-Root: no
+
+Package: smlnj
+Architecture: amd64 arm64
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: Standard ML of New Jersey interactive compiler
+ Standard ML of New Jersey (abbreviated SML/NJ) is a compiler for the
+ Standard ML '97 programming language with associated libraries,
+ tools, and documentation.
+ SML/NJ is free, open source software. 
+
