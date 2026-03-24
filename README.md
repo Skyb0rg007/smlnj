@@ -1,3 +1,6 @@
+
+[![build result](https://build.opensuse.org/projects/home:skyenet/packages/smlnj/badge.svg?type=default)](https://build.opensuse.org/package/show/home:skyenet/smlnj)
+
 # Standard ML of New Jersey
 
 This is the main development repository for **SML/NJ**.  We are

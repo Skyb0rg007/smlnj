@@ -1,0 +1,6 @@
+
+workflow:
+  steps:
+    - trigger_services:
+        project: home:skyenet
+        package: smlnj
