@@ -29,21 +29,22 @@ endif()
 if(LINUX)
     target_compile_definitions(runtime-defs INTERFACE
         OPSYS_UNIX OPSYS_LINUX _GNU_SOURCE DLOPEN INDIRECT_CFUNC)
-    set(RUNTIME_VERSION "v-${SMLNJ_ARCH}-linux")
+    set(SMLNJ_OPSYS "linux")
 elseif(APPLE)
     target_compile_definitions(runtime-defs INTERFACE
         OPSYS_UNIX OPSYS_DARWIN DLOPEN INDIRECT_CFUNC)
-    set(RUNTIME_VERSION "v-${SMLNJ_ARCH}-darwin")
+    set(SMLNJ_OPSYS "darwin")
 elseif(CYGWIN)
     target_compile_definitions(runtime-defs INTERFACE
         OPSYS_UNIX OPSYS_CYGWIN DLOPEN INDIRECT_CFUNC)
-    set(RUNTIME_VERSION "v-${SMLNJ_ARCH}-cygwin")
+    set(SMLNJ_OPSYS "cygwin")
 elseif(WIN32)
     target_compile_definitions(runtime-defs INTERFACE OPSYS_WIN32)
-    set(RUNTIME_VERSION "v-${SMLNJ_ARCH}-win32")
+    set(SMLNJ_OPSYS "win32")
 else()
     message(FATAL_ERROR "Unsupported OS: ${CMAKE_SYSTEM_NAME}")
 endif()
+set(RUNTIME_VERSION "v-${SMLNJ_ARCH}-${SMLNJ_OPSYS}")
 
 # --- Assembler syntax ---
 # x86-syntax.h requires exactly one of GNU_ASSEMBLER or MASM_ASSEMBLER.

@@ -35,6 +35,10 @@ add_custom_command(
         ${CMAKE_CURRENT_BINARY_DIR}/../config/mlstate-offsets.h
         ${CMAKE_CURRENT_BINARY_DIR}/../config/ml-sizes.h
 )
+set_source_files_properties(
+    ${CMAKE_CURRENT_BINARY_DIR}/prim.s
+    PROPERTIES LANGUAGE ASM
+)
 
 add_executable(interactive-run
     main.c
@@ -56,10 +60,6 @@ add_executable(interactive-run
     ../mach-dep/unix-signal.c
     ../mach-dep/unix-prof.c
     ${CMAKE_CURRENT_BINARY_DIR}/prim.s
-)
-set_source_files_properties(
-    ${CMAKE_CURRENT_BINARY_DIR}/prim.s
-    PROPERTIES LANGUAGE ASM
 )
 target_link_libraries(interactive-run
     PRIVATE
@@ -96,4 +96,15 @@ target_link_libraries(interactive-run
     runtime-common
     CFGCodeGen
     ${LLVM_LIBS}
+)
+
+string(TOLOWER "${SMLNJ_ARCH}" smlnj_arch_lc)
+string(TOLOWER "${SMLNJ_OPSYS}" smlnj_opsys_lc)
+set_target_properties(interactive-run PROPERTIES
+    OUTPUT_NAME "run.${smlnj_arch_lc}-${smlnj_opsys_lc}"
+)
+
+install(TARGETS interactive-run
+    RUNTIME DESTINATION
+        "${CMAKE_INSTALL_BINDIR}/.run"
 )
