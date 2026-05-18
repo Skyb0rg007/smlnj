@@ -6,22 +6,53 @@ add_library(runtime-defs INTERFACE)
 
 set(RUNTIME_USE_MMAP ON)
 
-if(LINUX)
-    set(RUNTIME_VERSION v-amd64-linux)
-    target_compile_definitions(runtime-defs
-        INTERFACE
-            OPSYS_UNIX
-            OPSYS_LINUX
-            DLOPEN
-            INDIRECT_CFUNC
-            ARCH_AMD64
-            SIZE_64
-
-            _GNU_SOURCE
-            GNU_ASSEMBLER
-    )
+# --- Architecture ---
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    set(SMLNJ_ARCH "AMD64")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+    set(SMLNJ_ARCH "ARM64")
 else()
-    message(FATAL_ERROR "only amd64-linux for now")
+    message(FATAL_ERROR "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+endif()
+target_compile_definitions(runtime-defs INTERFACE ARCH_${SMLNJ_ARCH})
+
+# --- Pointer size ---
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    target_compile_definitions(runtime-defs INTERFACE SIZE_64)
+else()
+    message(FATAL_ERROR "Only 64-bit targets are supported")
+endif()
+
+# --- OS ---
+# Note: under Cygwin both CYGWIN and WIN32 are set; check CYGWIN first so it
+# takes the Unix path rather than the native-Windows path.
+if(LINUX)
+    target_compile_definitions(runtime-defs INTERFACE
+        OPSYS_UNIX OPSYS_LINUX _GNU_SOURCE DLOPEN INDIRECT_CFUNC)
+    set(RUNTIME_VERSION "v-${SMLNJ_ARCH}-linux")
+elseif(APPLE)
+    target_compile_definitions(runtime-defs INTERFACE
+        OPSYS_UNIX OPSYS_DARWIN DLOPEN INDIRECT_CFUNC)
+    set(RUNTIME_VERSION "v-${SMLNJ_ARCH}-darwin")
+elseif(CYGWIN)
+    target_compile_definitions(runtime-defs INTERFACE
+        OPSYS_UNIX OPSYS_CYGWIN DLOPEN INDIRECT_CFUNC)
+    set(RUNTIME_VERSION "v-${SMLNJ_ARCH}-cygwin")
+elseif(WIN32)
+    target_compile_definitions(runtime-defs INTERFACE OPSYS_WIN32)
+    set(RUNTIME_VERSION "v-${SMLNJ_ARCH}-win32")
+else()
+    message(FATAL_ERROR "Unsupported OS: ${CMAKE_SYSTEM_NAME}")
+endif()
+
+# --- Assembler syntax ---
+# x86-syntax.h requires exactly one of GNU_ASSEMBLER or MASM_ASSEMBLER.
+# arm64-darwin uses Apple's arm64 assembly syntax, so neither applies there.
+# Native Windows uses MASM; everything else (all Unix platforms) uses GNU.
+if(WIN32 AND NOT CYGWIN)
+    target_compile_definitions(runtime-defs INTERFACE MASM_ASSEMBLER)
+elseif(NOT (APPLE AND SMLNJ_ARCH STREQUAL "ARM64"))
+    target_compile_definitions(runtime-defs INTERFACE GNU_ASSEMBLER)
 endif()
 
 # Targets used for configuration
