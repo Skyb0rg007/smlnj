@@ -6,26 +6,29 @@ project(
     LANGUAGES C CXX ASM
 )
 
-include(FetchContent)
 include(GNUInstallDirs)
 
-if (NOT CMAKE_BUILD_TYPE)
+if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# XXX: Support cross-compilation
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    set(SMLNJ_ARCH "AMD64")
     set(LLVM_TARGETS_TO_BUILD X86)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+    set(SMLNJ_ARCH "ARM64")
     set(LLVM_TARGETS_TO_BUILD AArch64)
 else()
-    message(FATAL_ERROR "Unsupported architecture ${CMAKE_SYSTEM_PROCESSOR}")
+    message(FATAL_ERROR "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
+# XXX: This should be the default, but requires edits to smlnj-llvm repo
 set(SMLNJ_GENERATE_CONFIG_HEADER ON)
 
 # LLVM options
+# XXX: These should be set in the smlnj-llvm repo
 set(LLVM_ENABLE_DUMP ON)
-
 set(LLVM_ENABLE_BINDINGS OFF)
 set(LLVM_ENABLE_LIBXML2 OFF)
 set(LLVM_ENABLE_OCAMLDOC OFF)
@@ -118,16 +121,6 @@ set(LLVM_TOOL_SANSTATS_BUILD OFF)
 set(LLVM_TOOL_VERIFY_USELISTORDER_BUILD OFF)
 set(LLVM_TOOL_VFABI_DEMANGLE_FUZZER_BUILD OFF)
 
-if(FALSE)
-# To use the submodule, set `-D FETCHCONTENT_SOURCE_DIR_SMLNJ_LLVM=runtime/llvm21`
-
-FetchContent_Declare(
-    smlnj_llvm
-    GIT_REPOSITORY "https://github.com/smlnj/smlnj-llvm-21.1.git"
-    GIT_TAG        6e331df8c0ad9eab4b98e04ae9db7af60f5aa976
-)
-
-FetchContent_MakeAvailable(smlnj_llvm)
-endif()
-
+# XXX: Support find_package / FetchContent for llvm build
+add_subdirectory(runtime/llvm21 EXCLUDE_FROM_ALL)
 add_subdirectory(runtime)

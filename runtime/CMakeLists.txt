@@ -1,19 +1,11 @@
 
-add_subdirectory(llvm21 EXCLUDE_FROM_ALL)
-
 # Common C macro definitions set for the runtime
 add_library(runtime-defs INTERFACE)
 
+# The mmap-based memory system is the only supported one
 set(RUNTIME_USE_MMAP ON)
 
 # --- Architecture ---
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
-    set(SMLNJ_ARCH "AMD64")
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
-    set(SMLNJ_ARCH "ARM64")
-else()
-    message(FATAL_ERROR "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
-endif()
 target_compile_definitions(runtime-defs INTERFACE ARCH_${SMLNJ_ARCH})
 
 # --- Pointer size ---
@@ -39,7 +31,8 @@ elseif(CYGWIN)
         OPSYS_UNIX OPSYS_CYGWIN DLOPEN INDIRECT_CFUNC)
     set(SMLNJ_OPSYS "cygwin")
 elseif(WIN32)
-    target_compile_definitions(runtime-defs INTERFACE OPSYS_WIN32)
+    target_compile_definitions(runtime-defs INTERFACE
+        OPSYS_WIN32)
     set(SMLNJ_OPSYS "win32")
 else()
     message(FATAL_ERROR "Unsupported OS: ${CMAKE_SYSTEM_NAME}")
