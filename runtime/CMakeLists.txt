@@ -44,7 +44,8 @@ elseif(WIN32)
 else()
     message(FATAL_ERROR "Unsupported OS: ${CMAKE_SYSTEM_NAME}")
 endif()
-set(RUNTIME_VERSION "v-${SMLNJ_ARCH}-${SMLNJ_OPSYS}")
+string(TOLOWER "${SMLNJ_ARCH}" smlnj_arch_lc)
+set(RUNTIME_VERSION "v-${smlnj_arch_lc}-${SMLNJ_OPSYS}")
 
 # --- Assembler syntax ---
 # x86-syntax.h requires exactly one of GNU_ASSEMBLER or MASM_ASSEMBLER.
