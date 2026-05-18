@@ -79,6 +79,20 @@ set_source_files_properties(
     GENERATED ON
 )
 
+#### reg-mask.h ####
+
+#add_executable(gen-regmask
+#    gen-regmask.c
+#)
+#target_link_libraries(gen-regmask
+#    PRIVATE gen-common
+#)
+#
+#add_custom_command(
+#    OUTPUT reg-mask.h
+#    COMMAND gen-regmask
+#)
+
 # Target
 
 add_custom_target(generated-files
@@ -86,6 +100,8 @@ add_custom_target(generated-files
     ${CMAKE_CURRENT_BINARY_DIR}/unix-sigtbl.c
     ${CMAKE_CURRENT_BINARY_DIR}/mlstate-offsets.h
     ${CMAKE_CURRENT_BINARY_DIR}/ml-sizes.h
+    ${CMAKE_CURRENT_BINARY_DIR}/system-signals.h
+    # ${CMAKE_CURRENT_BINARY_DIR}/reg-mask.h
 )
 
 add_library(runtime-gen INTERFACE)

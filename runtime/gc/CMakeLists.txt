@@ -7,6 +7,7 @@ add_library(gc STATIC
     major-gc.c
     flip.c
     gc-util.c
+    gc-stats.c
     big-objects.c
     ml-objects.c
     obj-info.c

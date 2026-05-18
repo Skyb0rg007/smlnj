@@ -1,16 +1,39 @@
 
 llvm_map_components_to_libnames(LLVM_LIBS ${LLVM_TARGETS_TO_BUILD} passes runtimedyld)
 
+set(SMLNJ_ASM_DEFINES
+    -D_ASM_
+    -DARCH_${SMLNJ_ARCH}
+    -DSIZE_64)
+if(LINUX)
+    list(APPEND SMLNJ_ASM_DEFINES -DOPSYS_UNIX -DOPSYS_LINUX -D_GNU_SOURCE)
+elseif(APPLE)
+    list(APPEND SMLNJ_ASM_DEFINES -DOPSYS_UNIX -DOPSYS_DARWIN)
+elseif(CYGWIN)
+    list(APPEND SMLNJ_ASM_DEFINES -DOPSYS_UNIX -DOPSYS_CYGWIN)
+elseif(WIN32)
+    list(APPEND SMLNJ_ASM_DEFINES -DOPSYS_WIN32)
+endif()
+if(WIN32 AND NOT CYGWIN)
+    list(APPEND SMLNJ_ASM_DEFINES -DMASM_ASSEMBLER)
+elseif(NOT (APPLE AND SMLNJ_ARCH STREQUAL "ARM64"))
+    list(APPEND SMLNJ_ASM_DEFINES -DGNU_ASSEMBLER)
+endif()
+
+# TODO: CMake should support asm-with-c-preprocessor
 add_custom_command(
     OUTPUT prim.s
     COMMAND
         ${CMAKE_C_COMPILER} -E -P -x assembler-with-cpp -D_ASM_
         -I${CMAKE_CURRENT_SOURCE_DIR}/../include
         -I${CMAKE_CURRENT_BINARY_DIR}/../config
-        -DGNU_ASSEMBLER
-        -DARCH_AMD64
-        ${CMAKE_CURRENT_SOURCE_DIR}/../mach-dep/AMD64.prim.asm
+        ${SMLNJ_ASM_DEFINES}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../mach-dep/${SMLNJ_ARCH}.prim.asm
             > prim.s
+    DEPENDS
+        ${CMAKE_CURRENT_SOURCE_DIR}/../mach-dep/${SMLNJ_ARCH}.prim.asm
+        ${CMAKE_CURRENT_BINARY_DIR}/../config/mlstate-offsets.h
+        ${CMAKE_CURRENT_BINARY_DIR}/../config/ml-sizes.h
 )
 
 add_executable(interactive-run
