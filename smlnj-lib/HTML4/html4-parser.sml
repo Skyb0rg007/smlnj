@@ -278,7 +278,7 @@ fun htmlFromParseStream pstrm0 =
 	       pstrm7,
 	       SOME (H4.HTML{
 		   version = theVersion,
-		   head = [],
+		   head = valOf headDataListOpt,
 		   content = content
 		 })
 	     ) end
