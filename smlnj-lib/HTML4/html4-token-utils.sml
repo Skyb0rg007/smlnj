@@ -149,6 +149,14 @@ fun extractTag str = let
 		  (* end case *))
 	      | _ => tagNameChs
 	    (* end case *))
+      (* strip a trailing "/" from a tight self-closing tag, e.g. "<br/>" *)
+      val tagNameChs = (
+	    case CharVectorSlice.length tagNameChs
+	     of 0 => tagNameChs
+	      | n => if (CharVectorSlice.sub (tagNameChs, n-1) = #"/")
+		  then CharVectorSlice.subslice (tagNameChs, 0, SOME(n-1))
+		  else tagNameChs
+	    (* end case *))
       in
 	Atom.atom (CharVectorSlice.map Char.toUpper tagNameChs)
       end
