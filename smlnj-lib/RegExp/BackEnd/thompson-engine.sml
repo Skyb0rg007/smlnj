@@ -124,31 +124,47 @@ structure ThompsonEngine : REGEXP_ENGINE =
 		  | RE.Interval(re, 1, NONE) => posClosure re
 		  | RE.Interval(re, min, optMax) => let
                       (* the suffix matches instances of `re` after the first `min`
-                       * iterations.  It is either `re*` (when `optMax` is `NONE`)
+                       * iterations.  It is either `re*` (when `optMax` is `NONE`),
                        * or a sequence of `m - min` SPLITs, where one edge goes to
                        * out and the other goes to next SPLIT in the sequence
-                       * (when `optMax` is `SOME m`).
+                       * (when `optMax` is `SOME m` and `m > min`), or nothing at
+                       * all (when `optMax` is `SOME m` and `m = min`, i.e., an
+                       * exact-count repetition like `re{min}`).
                        *)
-                      val suffix : frag = (case optMax
-                             of NONE => closure re
-                              | SOME m => let
-                                  val out = ref final
-                                  fun mkSuffix 1 = reComp re
-                                    | mkSuffix i = let
-                                        val f = reComp re
-                                        val f' = mkSuffix(i-1)
-                                        val s = newSplit(out, ref(#start f))
-                                        in
-                                          setOuts (f, #start f');
-                                          {start = s, out = out :: #out f'}
-                                        end
-                                  in
-                                    if (m <= min) then raise RE.CannotCompile else ();
-                                    mkSuffix (m - min)
-                                  end
+                      val suffixOpt : frag option = (case optMax
+                             of NONE => SOME (closure re)
+                              | SOME m =>
+                                  if (m < min) then raise RE.CannotCompile
+                                  else if (m = min) then NONE
+                                  else let
+                                    val out = ref final
+                                    fun mkSuffix 1 = reComp re
+                                      | mkSuffix i = let
+                                          val f = reComp re
+                                          val f' = mkSuffix(i-1)
+                                          val s = newSplit(out, ref(#start f))
+                                          in
+                                            setOuts (f, #start f');
+                                            {start = s, out = out :: #out f'}
+                                          end
+                                    in
+                                      SOME (mkSuffix (m - min))
+                                    end
                             (* end case *))
-                      (* the prefix is `min` iterations of `re` *)
-                      fun mkPrefix 0 = suffix
+                      (* the prefix is `min` iterations of `re`, connected to the
+                       * suffix (if any); with no suffix, the last iteration's
+                       * fragment is the result directly (no extra repetitions).
+                       *)
+                      fun mkPrefix 0 = (case suffixOpt
+                             of SOME f => f
+                              | NONE => raise RE.CannotCompile (* re{0} -- not supported *))
+                        | mkPrefix 1 = let
+                            val f = reComp re
+                            in
+                              case suffixOpt
+                               of SOME f' => (setOuts (f, #start f'); {start = #start f, out = #out f'})
+                                | NONE => f
+                            end
                         | mkPrefix i = let
                             val f = reComp re
                             val f' = mkPrefix (i-1)
@@ -285,10 +301,10 @@ structure ThompsonEngine : REGEXP_ENGINE =
                   add (stateList, id)
                 end
           (* get the list of start states by performing epsilon moves *)
-	  fun startStates strm = let
+	  fun startStates (isFirst, strm) = let
 		val stamp' = incr()
 		in
-		  addState (true, strm, stamp', [], start)
+		  addState (isFirst, strm, stamp', [], start)
 		end
           (* is the accepting state in the current set of states? *)
 	  fun isMatch stamp = (Array.sub(lastStamp, 0) = stamp)
@@ -373,7 +389,7 @@ end;
                               (* end case *)
                             end
                       (* end case *))
-                val nfaStart = startStates strm
+                val nfaStart = startStates (isFirst, strm)
                 val lastMatch = if isMatch(!stamp)
                       then SOME(0, strm)
                       else NONE
