@@ -173,10 +173,12 @@ functor CheckHTMLFn (Err : HTML_ERROR) : sig
 			    } content
 			| (HTML.PARAM _) =>
 			    if inApplet then error ("param", "applet") else ()
-			| (HTML.FONT{content, ...}) =>
-			    if inPre then error("FONT", "PRE") else ()
-			| (HTML.BASEFONT{content, ...}) =>
-			    if inPre then error("BASEFONT", "PRE") else ()
+			| (HTML.FONT{content, ...}) => (
+			    if inPre then error("FONT", "PRE") else ();
+			    chk content)
+			| (HTML.BASEFONT{content, ...}) => (
+			    if inPre then error("BASEFONT", "PRE") else ();
+			    chk content)
 			| (HTML.BR _) => ()
 			| (HTML.MAP _) => ()
 			| (HTML.INPUT{ty, name, value, ...}) => (
