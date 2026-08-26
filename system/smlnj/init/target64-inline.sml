@@ -309,19 +309,13 @@ structure InlineT =
 	val toLargeIntX   = InLine.signed_word8_to_intinf
 	val fromLargeInt  = InLine.intinf_to_word8
 
-	local
-	(* wrapper that clamps the result of an operation to 0..255.  Note that
-         * this wrapper breaks the inlining of Word8 arithmetic!
-	 *)
-	  fun w8adapt oper args = InLine.word8_andb(oper args, 0wxFF)
-	in
         val orb : word8 * word8 -> word8	= InLine.word8_orb
         val xorb : word8 * word8 -> word8	= InLine.word8_xorb
         val andb : word8 * word8 -> word8	= InLine.word8_andb
-        val op * : word8 * word8 -> word8	= w8adapt InLine.word8_mul
-        val op + : word8 * word8 -> word8	= w8adapt InLine.word8_add
-        val op - : word8 * word8 -> word8	= w8adapt InLine.word8_sub
-	val ~ : word8 -> word8			= w8adapt InLine.word8_neg
+        val op * : word8 * word8 -> word8	= fn (a,b) => InLine.word8_andb(InLine.word8_mul(a,b), 0wxFF)
+        val op + : word8 * word8 -> word8	= fn (a,b) => InLine.word8_andb(InLine.word8_add(a,b), 0wxFF)
+        val op - : word8 * word8 -> word8	= fn (a,b) => InLine.word8_andb(InLine.word8_sub(a,b), 0wxFF)
+	val ~ : word8 -> word8			= fn a => InLine.word8_andb(InLine.word8_neg a, 0wxFF)
         val op div : word8 * word8 -> word8	= InLine.word8_div
         val op mod : word8 * word8 -> word8	= InLine.word8_mod
         val op > : word8 * word8 -> bool	= InLine.word8_gt
@@ -330,11 +324,11 @@ structure InlineT =
         val op <= : word8 * word8 -> bool	= InLine.word8_le
         val rshift : word8 * word -> word8	= InLine.word8_raw_rshift
         val rshiftl : word8 * word -> word8	= InLine.word8_raw_rshiftl
-        val lshift : word8 * word -> word8	= w8adapt InLine.word8_raw_lshift
+        val lshift : word8 * word -> word8	= fn (a,b) => InLine.word8_andb(InLine.word8_raw_lshift(a,b), 0wxFF)
         val notb : word8 -> word8		= InLine.word8_notb
 	val chkRshift : word8 * word -> word8	= InLine.word8_rshift
 	val chkRshiftl : word8 * word -> word8	= InLine.word8_rshiftl
-	val chkLshift : word8 * word -> word8	= w8adapt InLine.word8_lshift
+	val chkLshift : word8 * word -> word8	= fn (a,b) => InLine.word8_andb(InLine.word8_lshift(a,b), 0wxFF)
         val rotateR : word8 * word -> word8     = InLine.word8_rotr
         val rotateL : word8 * word -> word8     = InLine.word8_rotl
 
@@ -346,7 +340,6 @@ structure InlineT =
         val cntTrailingOnes : word8 -> int      = InLine.word8_cnt_trailing_ones
         val isPowOf2 : word8 -> bool            = InLine.word8_is_pow2
         val ceilLog2 : word8 -> word            = InLine.word8_ceil_log2
-	end (* local *)
 
 	val min     : word8 * word8 -> word8 = InLine.word8_min
 	val max     : word8 * word8 -> word8 = InLine.word8_max
