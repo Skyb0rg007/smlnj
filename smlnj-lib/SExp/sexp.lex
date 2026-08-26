@@ -86,6 +86,10 @@
 <INITIAL>{int}{exp}		=> ( float yytext );
 <INITIAL>{int}{frac}{exp}	=> ( float yytext );
 
+(* this must come after the numeric-literal rules above: an identifier like
+ * "-3.5" matches both {ident} and {int}{frac} with the same (maximal)
+ * length, and ml-ulex breaks such ties in favor of whichever rule is
+ * declared first, so {ident} has to lose that tie to the numeric rules. *)
 <INITIAL>{ident}		=> ( T.SYMBOL (yytext) );
 
 (* string values follow the syntax of Scheme as described in

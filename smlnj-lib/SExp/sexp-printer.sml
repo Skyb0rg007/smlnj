@@ -18,6 +18,18 @@ structure SExpPrinter : sig
     structure S = SExp
     structure F = Format
 
+    (* format a float so that it always has a decimal point or exponent,
+     * e.g. "3.0" and not "3" -- otherwise it would round-trip through the
+     * parser as an SExp.INT instead of an SExp.FLOAT.
+     *)
+    fun fmtFloat value = let
+	  val s = F.format "%g" [F.REAL value]
+	  in
+	    if CharVector.exists (fn c => (c = #".") orelse (c = #"e") orelse (c = #"E")) s
+	      then s
+	      else s ^ ".0"
+	  end
+
     fun print (strm, sexp) = let
 	  fun pr s = TextIO.output(strm, s)
 	  fun prList [] = pr ("()")
@@ -27,7 +39,7 @@ structure SExpPrinter : sig
 	  and prVal (S.SYMBOL value) = pr (Atom.toString value)
 	    | prVal (S.BOOL value) = pr (if value then "#t" else "#f")
 	    | prVal (S.INT value) = pr (F.format "%d" [F.LINT value])
-	    | prVal (S.FLOAT value) = pr (F.format "%g" [F.REAL value])
+	    | prVal (S.FLOAT value) = pr (fmtFloat value)
 	    | prVal (S.STRING value) = pr (SExpStringUtil.toString value)
 	    | prVal (S.QUOTE value) = (pr "'"; prVal value)
 	    | prVal (S.LIST values) = prList values
