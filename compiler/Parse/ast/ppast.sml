@@ -811,9 +811,11 @@ and ppDec sourceOp ppstrm =
 	       closeBox ())
 	  end
         | ppDec'(ExceptionDec ebs,d) =
-	  (openHVBox 0;
-	   ((fn ppstrm => fn eb => ppEb sourceOp ppstrm (eb,d-1)),ebs);
-	   closeBox ())
+	  let fun pr ppstrm eb = ppEb sourceOp ppstrm (eb,d-1)
+	   in openHVBox 0;
+	      PU.ppvlist ppstrm ("exception ", "and ", pr, ebs);
+	      closeBox ()
+	  end
         | ppDec'(StrDec sbs,d) =
           let fun pr _ (sbing) = (ppStrb sourceOp ppstrm (sbing, d))
 		in PU.ppClosedSequence ppstrm
