@@ -99,6 +99,8 @@
 <INITIAL>"&gt;"			=> (T.TEXT ">");
 <INITIAL>"&amp;"		=> (T.TEXT "&");
 <INITIAL>"&apos;"		=> (T.TEXT "'");
+<INITIAL>"&#"[0-9]+";"		=> (T.TEXT(UTF8.encode(Word.fromInt(Option.valOf(Int.fromString(trim(2, yysubstr, 1)))))));
+<INITIAL>"&#x"[a-fA-F0-9]+";"	=> (T.TEXT(UTF8.encode(Option.valOf(Word.fromString(trim(3, yysubstr, 1))))));
 <INITIAL>"<![CDATA[".*"]]>"	=> (T.CDATA(trim (9, yysubstr, 3)));
 
 <INITIAL>.		        => (lexErr(yypos, [
