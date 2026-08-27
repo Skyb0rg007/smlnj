@@ -147,11 +147,29 @@ let fun timeIt x = TimeIt.timeIt (!MCC.mcstats) x
     val _ = MCPrint.debugPrint printDectree ("** matchComp: dectree = ", MCPrint.ppDectree, dectree)
 
     (* checking exhaustiveness and redundancy of rules *)
-    (* It may be that there are unused _ramified_ rules, but all original rules are used!? Example? *)
     val SOME{rulesUsed, numFAIL, ...} = !ST.dectreeStats
     val unusedRules : ruleset = RS.difference (allRules, rulesUsed)  (* expanded rules *)
-    val unusedOriginalRules : ruleset = RS.map (#3 o ruleMap) unusedRules
-        (* unusedRules translated back to corresponding original rule numbers. WRONG??? *)
+
+    (* An original (pre-expansion) rule is only genuinely redundant when
+     * ALL of its OR-expanded alternatives are unused; if some alternative
+     * is still reachable, the clause as a whole is not dead code, even
+     * though one of its OR-pattern arms may be. Group the expanded
+     * rulenos by their originating rule, then keep only those original
+     * rulenos whose entire group of alternatives is unused. *)
+    val expandedByOriginal : ruleset IntListMap.map =
+	RS.foldl
+	  (fn (r, m) =>
+	      let val orr = #3 (ruleMap r)
+	      in IntListMap.insertWith RS.union (m, orr, RS.singleton r)
+	      end)
+	  IntListMap.empty allRules
+    val unusedOriginalRules : ruleset =
+	IntListMap.foldli
+	  (fn (orr, expanded, acc) =>
+	      if RS.isSubset (expanded, unusedRules)
+	      then RS.add (acc, orr)
+	      else acc)
+	  RS.empty expandedByOriginal
     val redundant = not (RS.isEmpty unusedRules)
     val nonexhaustive = numFAIL > 0  (* any FAIL nodes => nonexhaustive rules *)
 
@@ -174,7 +192,11 @@ let fun timeIt x = TimeIt.timeIt (!MCC.mcstats) x
 				    
     val _ = if !stats then ST.reportStats () else ()
 
-    (* rudundant <=> not (null unusedOriginalRules) <=> not (null unusedExpandedRules) *)
+    (* NOTE: redundant can be true while unusedOriginalRules is empty: that
+     * happens when every unused expanded rule belongs to an OR-pattern
+     * clause that also has a used alternative, so no single original rule
+     * is wholly dead even though the match as a whole has unreachable
+     * cases. *)
  in (fullExp, rootVar, RS.toList unusedOriginalRules, redundant, nonexhaustive)
 end (* fun matchComp *)
 
