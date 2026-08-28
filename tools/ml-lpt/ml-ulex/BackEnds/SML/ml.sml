@@ -251,7 +251,12 @@ structure ML =
 		  hbox(); pp p; close()
 		end
 	  in
-	    ppExp (false, false, e)
+	    ppExp (false, false, e);
+	  (* the callers interleave direct `TextIO.output` writes on the same
+	   * underlying stream, so everything queued here has to reach the
+	   * stream before we return, or the two writers' output is reordered
+	   *)
+	    PP.flushStream ppStrm
 	  end
     end (* local *)
 
