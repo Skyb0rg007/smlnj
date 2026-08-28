@@ -260,7 +260,14 @@ structure SMLOutput =
           val (grm as S.Grammar {toks, nterms, startnt, sortedTops, entryPoints, ...},
 	       pm) = spec
           val ppStrm = TextIOPP.openOut {dst = strm, wid = 80}
-	  val entries = map NTFnName (startnt :: entryPoints)
+	(* the start nonterminal is always an entry point, but it may also be
+	 * named explicitly in the grammar's `%entry` declaration; listing it
+	 * twice would bind the same variable twice in the `entriesVal` tuple
+	 * pattern below
+	 *)
+	  val allEntries = startnt
+		:: List.filter (fn nt => not (Nonterm.same (nt, startnt))) entryPoints
+	  val entries = map NTFnName allEntries
 	  val entriesVal = "val (" ^ String.concatWith ", " entries ^ ") = "
 	  val innerExp = ML_Tuple (map ML_Var entries)
 	  val parser = List.foldl (mkNonterms (grm, pm)) innerExp sortedTops
@@ -283,7 +290,7 @@ structure SMLOutput =
             TextIO.output (strm, entriesVal ^ "\n");
             ML.ppML (ppStrm, parser);
 	    TextIO.output (strm, "\n");
-	    app wrWrapParse (startnt::entryPoints);
+	    app wrWrapParse allEntries;
             TextIO.output (strm, concat [
 		"\nin (",
 		String.concatWith ", " entries,
