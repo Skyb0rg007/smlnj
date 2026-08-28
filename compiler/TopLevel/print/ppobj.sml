@@ -354,11 +354,10 @@ structure PPObj : PPOBJ =
               depth:int, accu
             ) = ppVal' (obj, ty, membersOp, depth, noparen, noparen, accu)
 
-        and ppVal' (_,_,_,0,_,_,_) = PP.string ppstrm  "#"
-          | ppVal' (
+        and ppVal' (
               obj: object, ty: T.ty, membersOp: (T.tycon list * T.tycon list) option,
               depth: int, l: F.fixity, r: F.fixity, accu
-            ) = ((case ty
+            ) = if depth <= 0 then PP.string ppstrm  "#" else ((case ty
                of T.VARty(ref(T.INSTANTIATED t)) =>
                     ppVal'(obj,t,membersOp,depth,r,l,accu)
                 | T.POLYty{tyfun=T.TYFUN{body,arity},...} =>
@@ -485,9 +484,9 @@ structure PPObj : PPOBJ =
               (* end case *))
                 handle e => raise e)
 
-        and ppDcon(_,_,_,_,0,_,_,_) = PP.string ppstrm  "#"
-          | ppDcon(obj:object, (stamp, {tycname,dcons,...}), membersOp : (T.tycon list * T.tycon list) option,
+        and ppDcon(obj:object, (stamp, {tycname,dcons,...}), membersOp : (T.tycon list * T.tycon list) option,
                    argtys, depth:int, l:F.fixity, r:F.fixity, accu) =
+             if depth <= 0 then PP.string ppstrm  "#" else
              PPTable.pp_object ppstrm stamp obj
                    (* attempt to find and apply user-defined pp on obj *)
              handle PP_NOT_INSTALLED =>
