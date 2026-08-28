@@ -21,19 +21,38 @@
           in
             read (len, [])
           end
-    (* read a shared value *)
+    (* read a shared value; `stk` holds one cell per value that has been
+     * introduced so far, most recent first, so the value with ID `id` is at
+     * offset `length(stk) - id - 1`
+     *)
     fun readShared (rdFn, stk) (cxt : instream) = (
           case @PICKLER@.readUInt (#inS cxt)
-           of 0w0 => let val obj = rdFn cxt
+           of 0w0 => let
+              (* reserve this value's cell *before* reading its representation,
+               * so that cells are allocated in the same order that the writer
+               * assigns IDs, even when shared values are nested
+               *)
+                val cell = ref NONE
+                val () = stk cxt := cell :: !(stk cxt)
+                val obj = rdFn cxt
                 in
-                  stk cxt := obj :: !(stk cxt);
+                  cell := SOME obj;
                   obj
                 end
             | n => let
-                fun get ([], _) = raise Subscript
+                val cells = !(stk cxt)
+                val depth = Word.fromInt (length cells)
+                fun get ([], _) = raise ASDL.DecodeError
                   | get (x::_, 0w0) = x
                   | get (_::xs, n) = get (xs, n-0w1)
                 in
-                  get (!(stk cxt), n)
+                  if n > depth then raise ASDL.DecodeError else ();
+                  case !(get (cells, depth - n))
+                   of SOME obj => obj
+                    (* the cell is still empty, so the pickle refers to a value
+                     * from inside that value's own representation
+                     *)
+                    | NONE => raise ASDL.DecodeError
+                  (* end case *)
                 end
           (* end case *))

@@ -55,9 +55,9 @@ structure GenSharingContext : sig
      * ```
      *    type 'inS rd = {
      *        inS : 'inS,
-     *        mod1_ty1 : Mod1.ty1 list ref,
+     *        mod1_ty1 : Mod1.ty1 option ref list ref,
      *        ...
-     *        modn_tyn : Modn.tyn list ref
+     *        modn_tyn : Modn.tyn option ref list ref
      *      }
      *    fun 'inS mk (inS : 'inS) : 'inS rd = {
      *            inS = inS,
@@ -75,7 +75,14 @@ structure GenSharingContext : sig
           val rdContextTyDec = mkRecordTyDec (
                 [inTV], "rd",
                 ("inS", inTy)
-                  :: List.map (fn (f, ty) => (f, S.refTy(S.listTy ty))) fields)
+                (* each shared value gets a cell, which `readShared` reserves
+                 * before it reads the value's representation and fills in
+                 * afterwards
+                 *)
+                  :: List.map
+                       (fn (f, ty) =>
+                          (f, S.refTy(S.listTy(S.refTy(S.CONty([ty], "option"))))))
+                         fields)
           fun mkFieldInit (f, _) = (f, S.APPexp(S.IDexp "ref", S.LISTexp[]))
           val body = S.RECORDexp(("inS", S.IDexp "inS") :: List.map mkFieldInit fields)
           val mkFunDec = S.FUNdec([inTV], [
