@@ -223,7 +223,44 @@ structure Binfile :> BINFILE =
                     arch = arch,
                     smlnjVersion = smlnjVers
                 } end
-(* TODO: check version *)
+        (* reject a binfile that was not produced by this compiler for this
+         * target; `old-binfile.sml` did this and the check was dropped when
+         * the format changed.  CM has no other defense against a stale
+         * cached binfile: `TStamp.needsUpdate` only compares timestamps.
+         *)
+          val _ = let
+              (* the header's strings are truncated to a fixed width and then
+               * blank padded, so truncate and strip the expected ones the
+               * same way before comparing
+               *)
+                fun normalize n v = let
+                      val v = if size v > n then substring (v, 0, n) else v
+                      in
+                        Substring.string
+                          (Substring.dropr Char.isSpace
+                            (Substring.dropl Char.isSpace (Substring.full v)))
+                      end
+                in
+                  if normalize 8 (#arch version) <> normalize 8 (#arch version')
+                    then BFIO.error(concat[
+                        "incorrect architecture \"", String.toString(#arch version'),
+                        "\", expected \"", String.toString(#arch version), "\""
+                      ])
+                  else if normalize 16 (#smlnjVersion version)
+                            <> normalize 16 (#smlnjVersion version')
+                    then BFIO.error(concat[
+                        "incorrect compiler version \"",
+                        String.toString(#smlnjVersion version'),
+                        "\", expected \"", String.toString(#smlnjVersion version), "\""
+                      ])
+                  else if #bfVersion version <> #bfVersion version'
+                    then BFIO.error(concat[
+                        "incorrect binfile version ",
+                        Word.fmt StringCvt.HEX (#bfVersion version'),
+                        ", expected ", Word.fmt StringCvt.HEX (#bfVersion version)
+                      ])
+                    else ()
+                end
           val imports = readSection (BFIO.SectId.import, getImportSection)
           (* get the optional export Pid *)
           val exportPid = readSection (BFIO.SectId.export, getExportPidSection)
