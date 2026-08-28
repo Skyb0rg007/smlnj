@@ -65,11 +65,15 @@ ml_val_t _ml_P_FileSys_readlink (ml_state_t *msp, ml_val_t arg)
         /* Try the readlink again. Give up on error or if len is still bigger
          * than the buffer size.
          */
-	len = readlink(path, buf, len);
-	if (len < 0)
+	len = readlink(path, nbuf, nlen);
+	if (len < 0) {
+	    FREE (nbuf);
 	    return RAISE_SYSERR(msp, len);
-	else if (len >= nlen)
+	}
+	else if (len >= nlen) {
+	    FREE (nbuf);
 	    return RAISE_ERROR(msp, "readlink failure");
+	}
 
 	nbuf[len] = '\0';
 	obj = ML_CString (msp, nbuf);
