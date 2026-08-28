@@ -1005,7 +1005,16 @@ case fctexp
 			   in (resDec, resFct, resExp, EE.empty)
 			  end
 		       | Opaque astFsig =>
-                          bug "Opaque functor constraint not impl"
+			(* `functor F :> FS = G` parses, but opaque matching of
+			 * a functor against a functor signature has never been
+			 * implemented; report that rather than raising an
+			 * internal-error exception at the user
+			 *)
+			  (error region EM.COMPLAIN
+			     "opaque signature constraint on a functor is not supported"
+			     EM.nullErrorBody;
+			   (A.SEQdec [], M.ERRORfct, CONSTfct(M.bogusFctEntity),
+			    EE.empty))
 		end
       end
 
