@@ -98,8 +98,7 @@
 
       end
 
-    datatype yystart_state = 
-@startstates@
+    @startstates@
 
     structure UserDeclarations = 
       struct
