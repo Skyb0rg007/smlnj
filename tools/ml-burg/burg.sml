@@ -509,7 +509,7 @@ structure BurgEmit : BURGEMIT =
 		val maxcost = List.foldl max ~1 zapl
 		fun addlhs (({nt=lhs,...}:rule,_), lhss) =
 		  let
-		    fun loop ([],_) = lhs::lhss
+		    fun loop ([],acc) = (rev acc)@[lhs]
 		      | loop (e as (i::il), acc) =
 			  if lhs=i then lhss
 			  else if lhs<i then (rev acc)@(lhs::e)
