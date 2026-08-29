@@ -33,32 +33,32 @@ structure PackReal64Little : PACK_REAL =
 
     val isBigEndian : bool = false
 
+    (* NOTE: `toBits`/`fromBits` bit-cast between a `real` and a 64-bit *integer*,
+     * and in that integer the sign bit is bit 63 on every target.  The byte
+     * order used below is therefore a property of this module (little-endian),
+     * not of the host, and no host-endianness test belongs here.  The
+     * `InlineT.isBigEndian()` tests that used to guard this code not only were
+     * unnecessary, they also selected the wrong arm on each host: on a
+     * little-endian machine `PackReal64Big` emitted little-endian bytes and
+     * `PackReal64Little` emitted big-endian bytes (they round-tripped against
+     * themselves, so the error was invisible except when exchanging bytes with
+     * the outside world, or against `PackWord64Big`/`PackWord64Little`, which
+     * were always correct).
+     *)
+
     fun toBytes r = let
           val w = toBits r
           val bv = createW8Vec bytesPerElem
           fun update (i, w) = BV.update (bv, i, InlineT.Word8.fromLarge w)
           in
-            if InlineT.isBigEndian()
-              then (
-                (* big -> little *)
-                update (7, W64.rshiftl(w, 0w56));
-                update (6, W64.rshiftl(w, 0w48));
-                update (5, W64.rshiftl(w, 0w40));
-                update (4, W64.rshiftl(w, 0w32));
-                update (3, W64.rshiftl(w, 0w24));
-                update (2, W64.rshiftl(w, 0w16));
-                update (1, W64.rshiftl(w, 0w8));
-                update (0, w))
-              else (
-                (* little -> little *)
-                update (0, W64.rshiftl(w, 0w56));
-                update (1, W64.rshiftl(w, 0w48));
-                update (2, W64.rshiftl(w, 0w40));
-                update (3, W64.rshiftl(w, 0w32));
-                update (4, W64.rshiftl(w, 0w24));
-                update (5, W64.rshiftl(w, 0w16));
-                update (6, W64.rshiftl(w, 0w8));
-                update (7, w));
+            update (7, W64.rshiftl(w, 0w56));
+            update (6, W64.rshiftl(w, 0w48));
+            update (5, W64.rshiftl(w, 0w40));
+            update (4, W64.rshiftl(w, 0w32));
+            update (3, W64.rshiftl(w, 0w24));
+            update (2, W64.rshiftl(w, 0w16));
+            update (1, W64.rshiftl(w, 0w8));
+            update (0, w);
             bv
           end
 
@@ -66,8 +66,7 @@ structure PackReal64Little : PACK_REAL =
 	  then raise Subscript
 	  else let
             fun get i = InlineT.Word8.toLarge(BV.sub(bv, i))
-            val w = if InlineT.isBigEndian()
-                  then (* little -> big *)
+            val w =
                     W64.orb(W64.lshift(get 7, 0w56),
                     W64.orb(W64.lshift(get 6, 0w48),
                     W64.orb(W64.lshift(get 5, 0w40),
@@ -76,15 +75,6 @@ structure PackReal64Little : PACK_REAL =
                     W64.orb(W64.lshift(get 2, 0w16),
                     W64.orb(W64.lshift(get 1, 0w8),
                     get 0)))))))
-                  else (* little -> little *)
-                    W64.orb(W64.lshift(get 0, 0w56),
-                    W64.orb(W64.lshift(get 1, 0w48),
-                    W64.orb(W64.lshift(get 2, 0w40),
-                    W64.orb(W64.lshift(get 3, 0w32),
-                    W64.orb(W64.lshift(get 4, 0w24),
-                    W64.orb(W64.lshift(get 5, 0w16),
-                    W64.orb(W64.lshift(get 6, 0w8),
-                    get 7)))))))
             in
               fromBits w
             end
@@ -98,8 +88,7 @@ structure PackReal64Little : PACK_REAL =
 		then raise Subscript
 		else let
                   fun get i = InlineT.Word8.toLarge(BV.sub(bv, base ++ i))
-                  val w = if InlineT.isBigEndian()
-                        then (* little -> big *)
+                  val w =
                           W64.orb(W64.lshift(get 7, 0w56),
                           W64.orb(W64.lshift(get 6, 0w48),
                           W64.orb(W64.lshift(get 5, 0w40),
@@ -108,15 +97,6 @@ structure PackReal64Little : PACK_REAL =
                           W64.orb(W64.lshift(get 2, 0w16),
                           W64.orb(W64.lshift(get 1, 0w8),
                           get 0)))))))
-                        else (* little -> little *)
-                          W64.orb(W64.lshift(get 0, 0w56),
-                          W64.orb(W64.lshift(get 1, 0w48),
-                          W64.orb(W64.lshift(get 2, 0w40),
-                          W64.orb(W64.lshift(get 3, 0w32),
-                          W64.orb(W64.lshift(get 4, 0w24),
-                          W64.orb(W64.lshift(get 5, 0w16),
-                          W64.orb(W64.lshift(get 6, 0w8),
-                          get 7)))))))
                   in
                     fromBits w
                   end
@@ -131,8 +111,7 @@ structure PackReal64Little : PACK_REAL =
 		then raise Subscript
 		else let
                   fun get i = InlineT.Word8.toLarge(BA.sub(ba, base ++ i))
-                  val w = if InlineT.isBigEndian()
-                        then (* little -> big *)
+                  val w =
                           W64.orb(W64.lshift(get 7, 0w56),
                           W64.orb(W64.lshift(get 6, 0w48),
                           W64.orb(W64.lshift(get 5, 0w40),
@@ -141,15 +120,6 @@ structure PackReal64Little : PACK_REAL =
                           W64.orb(W64.lshift(get 2, 0w16),
                           W64.orb(W64.lshift(get 1, 0w8),
                           get 0)))))))
-                        else (* little -> little *)
-                          W64.orb(W64.lshift(get 0, 0w56),
-                          W64.orb(W64.lshift(get 1, 0w48),
-                          W64.orb(W64.lshift(get 2, 0w40),
-                          W64.orb(W64.lshift(get 3, 0w32),
-                          W64.orb(W64.lshift(get 4, 0w24),
-                          W64.orb(W64.lshift(get 5, 0w16),
-                          W64.orb(W64.lshift(get 6, 0w8),
-                          get 7)))))))
                   in
                     fromBits w
                   end
@@ -166,9 +136,6 @@ structure PackReal64Little : PACK_REAL =
                   fun update (i, w) = BA.update (ba, base ++ i, InlineT.Word8.fromLarge w)
                   val w = toBits r
                   in
-                    if InlineT.isBigEndian()
-                      then (
-                        (* big -> little *)
                         update (7, W64.rshiftl(w, 0w56));
                         update (6, W64.rshiftl(w, 0w48));
                         update (5, W64.rshiftl(w, 0w40));
@@ -176,17 +143,7 @@ structure PackReal64Little : PACK_REAL =
                         update (3, W64.rshiftl(w, 0w24));
                         update (2, W64.rshiftl(w, 0w16));
                         update (1, W64.rshiftl(w, 0w8));
-                        update (0, w))
-                      else (
-                        (* little -> little *)
-                        update (0, W64.rshiftl(w, 0w56));
-                        update (1, W64.rshiftl(w, 0w48));
-                        update (2, W64.rshiftl(w, 0w40));
-                        update (3, W64.rshiftl(w, 0w32));
-                        update (4, W64.rshiftl(w, 0w24));
-                        update (5, W64.rshiftl(w, 0w16));
-                        update (6, W64.rshiftl(w, 0w8));
-                        update (7, w))
+                        update (0, w)
                   end
             end
 
