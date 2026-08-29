@@ -27,7 +27,7 @@ structure Trilean : TRILEAN =
                 fun lp (inS : 'a, [] : char list) = SOME(tri, inS)
                   | lp (inS, c::cs) = (case getc inS
                        of NONE => SOME(tri, inS0)
-                        | SOME(c', inS') => if (Char.toLower c = c')
+                        | SOME(c', inS') => if (c = Char.toLower c')
                             then lp (inS', cs)
                             else SOME(tri, inS0)
                       (* end case *))
@@ -38,6 +38,12 @@ structure Trilean : TRILEAN =
                  of SOME(c, inS') => if Char.isSpace c
                       then st0 inS'
                       else (case Char.toLower c
+                      (* NOTE: these must be `inS'` (the stream AFTER the
+                       * initial character); passing `inS` made every suffix
+                       * comparison start at the initial character again, so
+                       * `scan` never consumed any input and never matched
+                       * more than one character.
+                       *)
                          of #"f" => stF inS'
                           | #"t" => stT inS'
                           | #"u" => stU inS'

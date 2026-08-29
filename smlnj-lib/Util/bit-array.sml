@@ -110,12 +110,21 @@ structure BitArray :> BIT_ARRAY =
 
           fun bits (len,l) = let
                 val (bv as BA{bits, ...}) = array (len, false)
-                fun init i = let
-                      val idx = byteOf i
-                      val b = 0w1 << Word.andb(Word.fromInt i, 0w7)
-                      in
-                        W8A.update (bits, idx, ((bits sub idx) ++ b))
-                      end
+              (* NOTE: the range check is required: without it an index in
+               * [len, 8*ceil(len/8)) lands in the array's final padding byte,
+               * silently setting a bit beyond `nbits` and breaking the
+               * representation invariant (`isZero` then reports `false` for an
+               * array whose `getBits` is empty, `toString` shows the stray
+               * bit, and `extend0` materializes it).
+               *)
+                fun init i = if (i < 0) orelse (len <= i)
+                      then raise Subscript
+                      else let
+                        val idx = byteOf i
+                        val b = 0w1 << Word.andb(Word.fromInt i, 0w7)
+                        in
+                          W8A.update (bits, idx, ((bits sub idx) ++ b))
+                        end
                 in
                   List.app init l;
                   bv
