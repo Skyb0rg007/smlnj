@@ -35,9 +35,12 @@ functor TestFn (val testDir : string;
   fun dirList dir = 
       let val ds = OS.FileSys.openDir dir
 	  fun loop () =
+	      (* NB: OS.FileSys.readDir returns `string option' in the 2004
+	       * Basis (it returned `string', with "" for end-of-stream, in
+	       * the 1997 Basis this was written against). *)
 	      case OS.FileSys.readDir ds 
-		of "" => []
-	         | s => if isCFile s then s::(loop ()) else loop ()
+		of NONE => []
+	         | SOME s => if isCFile s then s::(loop ()) else loop ()
       in loop () before OS.FileSys.closeDir ds end
 
   fun spaces n = 
@@ -95,8 +98,8 @@ functor TestFn (val testDir : string;
          | _ => (TextIO.output (os,"\t[orig execution failed]"); false)
 
   fun compare os file =
-      let val diffCommaind = "diff "^testDir^"/"^file^".out "^outDir^"/"^file^".out"
-      in case OS.Process.system (executeCommand testDir file)
+      let val diffCommand = "diff "^testDir^"/"^file^".out "^outDir^"/"^file^".out"
+      in case OS.Process.system diffCommand
 	   of 0 => (TextIO.output (os,"\t[output the same]"); true)
             | _ => (TextIO.output (os,"\t[output different]"); false)
       end
