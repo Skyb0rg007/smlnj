@@ -541,7 +541,22 @@ struct
 	    | (ct1 as Qual _, ct2 as Qual _) => 
 		      let val {volatile, const, ty=ct} = getQuals tidtab ct1
 			val {volatile=volatile', const=const', ty=ct'} = getQuals tidtab ct2
-		      in case compose (ct, ct') of
+		      in
+			(* ISO C 6.7.3: "For two qualified types to be
+			 * compatible, both shall have the identically
+			 * qualified version of a compatible type."  The
+			 * qualifier sets of the two sides must therefore
+			 * agree; previously volatile' and const' were
+			 * bound and never consulted, so e.g.
+			 *   extern const int x; extern volatile int x;
+			 * composed successfully to `const int'.  (Note
+			 * that a qualified type vs. an UNqualified one
+			 * already falls through to the catch-all NONE
+			 * arm below, so this arm was the only hole.) *)
+			if volatile <> volatile' orelse const <> const'
+			  then (NONE, ["Types have different type qualifiers."])
+			else
+			case compose (ct, ct') of
 			(NONE, eml) => (NONE, eml)
 		      | (SOME ct, eml) => let val ct = if volatile then Qual(VOLATILE, ct) else ct
 					      val ct = if const then Qual(CONST, ct) else ct
