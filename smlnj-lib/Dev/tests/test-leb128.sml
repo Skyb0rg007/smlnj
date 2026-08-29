@@ -25,9 +25,9 @@ structure TestLEB128 =
             TextIO.output(TextIO.stdOut, "\n"))
     in
 
-    fun testInt64 n = let
-          fun error msg = raise Fail(concat["testInt64 ", Int.toString n, ": ", msg])
-          val v = LEB128.encodeInt n
+    fun testInt n = let
+          fun error msg = raise Fail(concat["testInt ", Int.toString n, ": ", msg])
+          val v = LEB128.intToBytes n
           in
             case LEB128.decodeInt W8VS.getItem (W8VS.full v)
              of SOME(n', v') => if (n <> n')
@@ -41,7 +41,7 @@ structure TestLEB128 =
 
     fun testIntInf n = let
           fun error msg = raise Fail(concat["testIntInf ", IntInf.toString n, ": ", msg])
-          val v = LEB128.encodeIntInf n
+          val v = LEB128.intInfToBytes n
           in
             case LEB128.decodeIntInf W8VS.getItem (W8VS.full v)
              of SOME(n', v') => if (n <> n')
@@ -55,7 +55,7 @@ structure TestLEB128 =
 
     fun testWord64 n = let
           fun error msg = raise Fail(concat["testWord ", w64ToS n, ": ", msg])
-          val v = LEB128.encodeWord64 n
+          val v = LEB128.word64ToBytes n
           in
             case LEB128.decodeWord64 W8VS.getItem (W8VS.full v)
              of SOME(n', v') => if (n <> n')
