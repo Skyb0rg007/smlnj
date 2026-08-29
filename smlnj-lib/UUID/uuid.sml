@@ -85,7 +85,17 @@ structure UUID :> sig
     local
     (* the lengths of the fields *)
       val fieldLens = [8, 4, 4, 4, 12]
-      val scan8 = Word8.scan StringCvt.HEX SS.getc
+    (* convert a single hexadecimal digit; `NONE` for any other character.
+     * NOTE: we cannot use `Word8.scan StringCvt.HEX` here, because it accepts
+     * a "0x" prefix, skips leading whitespace, and stops at the first
+     * non-digit without reporting that the rest of the pair was garbage, so
+     * invalid UUID strings would be silently converted to wrong UUIDs.
+     *)
+      fun hexDigit c =
+	    if (#"0" <= c) andalso (c <= #"9") then SOME(Char.ord c - 0x30)
+	    else if (#"a" <= c) andalso (c <= #"f") then SOME(Char.ord c - 0x57)
+	    else if (#"A" <= c) andalso (c <= #"F") then SOME(Char.ord c - 0x37)
+	    else NONE
     (* converts a list of fields to a list of bytes. If there is the wrong number of
      * fields, or an incorrect length field, or a invalid digit, then `NONE` is
      * returned.
@@ -98,11 +108,14 @@ structure UUID :> sig
 		    fun lp (ss, bytes) = if SS.isEmpty ss
 			  then toBytes (flds, lens, bytes)
 			  else let
-			    val (b, rest) = SS.splitAt (ss, 2)
+			    val (digits, rest) = SS.splitAt (ss, 2)
 			    in
-			      case scan8 b
-			       of SOME(b, _) => lp (rest, b::bytes)
-				| NONE => NONE
+			      case (hexDigit(SS.sub(digits, 0)),
+				    hexDigit(SS.sub(digits, 1)))
+			       of (SOME d1, SOME d2) =>
+				    lp (rest, Word8.fromInt(16*d1 + d2) :: bytes)
+				| _ => NONE
+			      (* end case *)
 			    end
 		    in
 		      lp (fld, bytes)
