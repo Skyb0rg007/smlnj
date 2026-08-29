@@ -142,12 +142,14 @@ PVT ml_val_t ML_Poll (ml_state_t *msp, ml_val_t pollList, struct timeval *timeou
 {
     fd_set	rset, wset, eset;
     fd_set	*rfds, *wfds, *efds;
-    int		maxFD, sts, fd, flag;
+    int		maxFD, sts, fd, flag, nItems;
     ml_val_t	l, item;
 
     rfds = wfds = efds = NIL(fd_set *);
     maxFD = 0;
+    nItems = 0;
     for (l = pollList;  l != LIST_nil;  l = LIST_tl(l)) {
+	nItems++;
 	item	= LIST_hd(l);
 	fd	= REC_SELINT(item, 0);
 	flag	= REC_SELINT(item, 1);
@@ -182,10 +184,16 @@ PVT ml_val_t ML_Poll (ml_state_t *msp, ml_val_t pollList, struct timeval *timeou
     else if (sts == 0)
 	return LIST_nil;
     else {
-	ml_val_t	*resVec = NEW_VEC(ml_val_t, sts);
-	int		i, resFlag;
+      /* NOTE: `sts` is the number of *bits* that select(2) set, which is not
+       * the number of result items: a descriptor that is ready for both
+       * reading and writing counts twice, while a descriptor named by two
+       * different poll items counts once.  So the result vector must be
+       * sized by the number of poll items, not by `sts`.
+       */
+	ml_val_t	*resVec = NEW_VEC(ml_val_t, nItems);
+	int		i, n, resFlag;
 
-	for (i = 0, l = pollList;  l != LIST_nil;  l = LIST_tl(l)) {
+	for (n = 0, l = pollList;  l != LIST_nil;  l = LIST_tl(l)) {
 	    item	= LIST_hd(l);
 	    fd		= REC_SELINT(item, 0);
 	    flag	= REC_SELINT(item, 1);
@@ -198,13 +206,13 @@ PVT ml_val_t ML_Poll (ml_state_t *msp, ml_val_t pollList, struct timeval *timeou
 		resFlag |= ERR_BIT;
 	    if (resFlag != 0) {
 		REC_ALLOC2 (msp, item, INT_CtoML(fd), INT_CtoML(resFlag));
-		resVec[i++] = item;
+		resVec[n++] = item;
 	    }
 	}
 
-	ASSERT(i == sts);
+	ASSERT(n <= nItems);
 
-	for (i = sts-1, l = LIST_nil;  i >= 0;  i--) {
+	for (i = n-1, l = LIST_nil;  i >= 0;  i--) {
 	    item = resVec[i];
 	    LIST_cons (msp, l, item, l);
 	}
