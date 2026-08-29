@@ -131,6 +131,19 @@ structure Base64 : BASE64 =
 
     fun decode64 decTbl (s, start, len) = let
 	  fun decodeChr c = W8V.sub(decTbl, Char.ord c)
+	(* trim any trailing whitespace; the main decoding loop below uses `len`
+	 * as its bound, so trailing whitespace would otherwise be mistaken for
+	 * the start of another encoding quantum and reported as `Incomplete`.
+	 * In strict mode whitespace decodes to `errCode`, not `spCode`, so
+	 * nothing is trimmed and the invalid character is still reported.
+	 *)
+	  val len = let
+		fun trim n = if (n > 0) andalso (decodeChr(String.sub(s, start+n-1)) = spCode)
+		      then trim (n-1)
+		      else n
+		in
+		  trim len
+		end
 	  fun getc i = if (i < len)
 		then let
 		  val c = String.sub(s, start+i)
@@ -149,8 +162,18 @@ structure Base64 : BASE64 =
 	 *      two pad characters.
 	 *)
 	  val (lastQ, len, tailLen) = let
-		fun getTail (i, n, chrs) = if (i < 0)
-			then raise Incomplete
+		fun getTail (i, n, chrs) = if (n >= 4)
+		      (* we have a complete final quantum; `i` is the index of the
+		       * last character before it (~1 if the quantum is the whole
+		       * input), and the prefix bound must not go negative.
+		       *)
+			then (Int.max(i, 0), chrs)
+		      else if (i < 0)
+		      (* running off the front with no characters collected means
+		       * the input was empty (or all whitespace); with 1-3 collected
+		       * it is a genuinely incomplete quantum.
+		       *)
+			then if (n = 0) then (0, chrs) else raise Incomplete
 		      else if (n < 4)
 			then (case String.sub(s, start+i)
 			   of #"=" => getTail (i-1, n+1, (#"=", i)::chrs)
@@ -189,7 +212,7 @@ structure Base64 : BASE64 =
 			  ([b0, b1], len, 2)
 			end
 		    | (_, [_, _, _, _]) => ([], len, 0) (* fallback to regular path below *)
-		    | (_, []) => ([], len, 0)
+		    | (_, []) => ([], 0, 0)	(* empty or all-whitespace input *)
 		    | _ => raise Incomplete
 		  (* end case *)
 		end
