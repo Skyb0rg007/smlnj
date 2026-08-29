@@ -457,7 +457,8 @@ ml_val_t ML_SysConstList (ml_state_t *msp, sysconst_tbl_t *tbl)
       /* required space for string header+data (4 words + string bytes), pair (3 words),
        * cons (3 words).
        */
-        reqSpace = (4 + 3 + 3) * WORD_SZB + BYTES_TO_WORDS(strlen(tbl->consts[i].name) + 1);
+        reqSpace = WORD_SZB
+            * (4 + 3 + 3 + BYTES_TO_WORDS(strlen(tbl->consts[i].name) + 1));
         if (reqSpace >= availSpace) {
             InvokeGCWithRoots (msp, 0, (ml_val_t *)&list, NIL(ml_val_t *));
             availSpace = ((size_t)msp->ml_limitPtr - (size_t)msp->ml_allocPtr);
