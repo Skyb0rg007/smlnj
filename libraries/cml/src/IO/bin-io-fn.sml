@@ -654,10 +654,18 @@ functor BinIOFn (
 	  in
 	    SV.mPut (strm, strm'); v
 	  end
-    fun input1 strm = (case StreamIO.input1(SV.mTake strm)
-	   of NONE => NONE
-	    | (SOME(elem, strm')) => (SV.mPut (strm, strm'); SOME elem)
-	  (* end case *))
+  (* NOTE: the instream m-variable is EMPTY between the mTake and the mPut,
+   * so every path out of here (including end-of-stream) must put a stream
+   * back; otherwise every later operation on this instream blocks forever.
+   *)
+    fun input1 strm = let
+	  val s = SV.mTake strm
+	  in
+	    case StreamIO.input1 s
+	     of NONE => (SV.mPut (strm, s); NONE)
+	      | (SOME(elem, strm')) => (SV.mPut (strm, strm'); SOME elem)
+	    (* end case *)
+	  end
     fun inputN (strm, n) = let val (v, strm') = StreamIO.inputN (SV.mTake strm, n)
 	  in
 	    SV.mPut (strm, strm'); v
