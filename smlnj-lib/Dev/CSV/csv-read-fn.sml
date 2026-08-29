@@ -62,7 +62,7 @@ functor CSVReadFn (R : CSV_ROW) : sig
                  of #"\n" => if inQ
                       then (case getLine() (* multi-line field *)
                          of SOME ln => scanField (ln, 0, inQ, #"\n"::chrs, flds)
-                          | NONE => badRow ("", 0, "end-of-file in myltiline row")
+                          | NONE => badRow ("", 0, "end-of-file in multiline row")
                         (* end case *))
                       else finish (mkField (chrs, flds))
                   | #"," => if inQ
@@ -80,7 +80,7 @@ functor CSVReadFn (R : CSV_ROW) : sig
                   | c => scanField (ln, i+1, inQ, c::chrs, flds)
                 (* end case *))
           and nextField (ln, i, flds) = (case getc (ln, i)
-                 of #"\n" => finish flds
+                 of #"\n" => finish (""::flds)
                   | #"\"" => scanField (ln, i+1, true, [], flds)
                   | #"," => nextField (ln, i+1, ""::flds)
                   | c => scanField (ln, i, false, [], flds)
@@ -88,7 +88,7 @@ functor CSVReadFn (R : CSV_ROW) : sig
           in
             case getLine ()
              of NONE => NONE
-              | SOME ln => scanField (ln, 0, false, [], [])
+              | SOME ln => nextField (ln, 0, [])
             (* end case *)
           end
 
