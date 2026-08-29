@@ -67,7 +67,11 @@ functor RunCMLFn (G : OS_GLUE) : sig
 		CML.spawn initialProc;
 		S.dispatch()))
 	  in
-	    CU.clean CU.AtShutdown;
+	  (* the cleanUp flag is false when the program called
+	   * OS.Process.terminate, which is specified to skip the clean-up
+	   * actions.
+	   *)
+	    if cleanUp then CU.clean CU.AtShutdown else ();
 	    G.shutdown();
 	    S.stopTimer();
 	    Thread.reset false;
