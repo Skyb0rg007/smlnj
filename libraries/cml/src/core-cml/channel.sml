@@ -182,20 +182,29 @@ structure Channel : sig
             | NoItem => (S.atomicEnd(); false)
           (* end case *)))
 
-    fun recv (CHAN{priority, inQ, outQ}) = callcc (fn recvK => (
+    fun recv (CHAN{priority, inQ, outQ}) = (
 	  S.atomicBegin ();
 	  case (cleanAndRemove outQ)
-	   of Item(transId, sendK) => let
+	   of Item(transId, sendK) => callcc (fn recvK => let
 		val myId = S.getCurThread()
 		in
 		  setCurThread transId;
 		  priority := 1;
 		  throw sendK (myId, recvK)
+		end)
+	  (* NOTE: when we block here, we are resumed by the sender's
+	   * "throw rkont msg" (see send/sendEvt/sendPoll above), which does
+	   * NOT leave the atomic region, so we have to leave it ourselves.
+	   * This mirrors what recvEvt's blockFn does.
+	   *)
+	    | NoItem => let
+		val msg = callcc (fn recvK => (
+		      enqueue (inQ, (mkId(), recvK));
+		      S.atomicDispatch()))
+		in
+		  S.atomicEnd(); msg
 		end
-	    | NoItem => (
-		enqueue (inQ, (mkId(), recvK));
-		S.atomicDispatch())
-	  (* end case *)))
+	  (* end case *))
 
     fun recvEvt (CHAN{priority, inQ, outQ}) = let
 	  fun doFn () = let
