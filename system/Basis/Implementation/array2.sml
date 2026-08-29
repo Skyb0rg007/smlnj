@@ -44,7 +44,7 @@ structure Array2 :> ARRAY2 =
 	      end
 
     fun array (nrows, ncols, v) = (case chkSize (nrows, ncols)
-	   of 0 => {data = InlineT.PolyArray.newArray0(), nrows = 0, ncols = 0}
+	   of 0 => {data = InlineT.PolyArray.newArray0(), nrows = nrows, ncols = ncols}
 	    | n => {data = mkArray (n, v), nrows = nrows, ncols = ncols}
 	  (* end case *))
     fun fromList rows = (case List.rev rows
@@ -114,9 +114,9 @@ structure Array2 :> ARRAY2 =
 		  then Vector.fromList l
 		  else mkVec(j-1, A.sub(data, j)::l)
 	  in
-	    if ltu(nrows, i)
-	      then raise General.Subscript
-	      else mkVec (stop+ncols-1, [])
+	    if ltu(i, nrows)
+	      then mkVec (stop+ncols-1, [])
+	      else raise General.Subscript
 	  end
     fun column ({data, nrows, ncols}, j) = let
 	  fun mkVec (i, l) =
@@ -124,9 +124,9 @@ structure Array2 :> ARRAY2 =
 		  then Vector.fromList l
 		  else mkVec(i-ncols, A.sub(data, i)::l)
 	  in
-	    if ltu(ncols, j)
-	      then raise General.Subscript
-	      else mkVec ((A.length data - ncols) + j, [])
+	    if ltu(j, ncols)
+	      then mkVec ((A.length data - ncols) + j, [])
+	      else raise General.Subscript
 	  end
 
     datatype index = DONE | INDX of {i:int, r:int, c:int}
@@ -195,7 +195,12 @@ structure Array2 :> ARRAY2 =
 	  fun iter () = let
 		val r = !ri and c = !ci
 		in
-		  if (c < cEnd)
+		(* NOTE: the row bound has to be tested first; otherwise a region
+		 * with no rows still yields a whole row of (unchecked) indices.
+		 *)
+		  if (r >= rEnd)
+		    then DONE
+		  else if (c < cEnd)
 		    then (ci := c+1; mkIndx(r, c))
 		  else if (r+1 < rEnd)
 		    then (
@@ -225,7 +230,13 @@ structure Array2 :> ARRAY2 =
 	  fun iter () = let
 		val r = !ri and c = !ci
 		in
-		  if (r < rEnd)
+		(* NOTE: the column bound has to be tested first; otherwise a
+		 * region with no columns still yields a whole column of
+		 * (unchecked) indices.
+		 *)
+		  if (c >= cEnd)
+		    then DONE
+		  else if (r < rEnd)
 		    then (ri := r+1; mkIndx(r, c))
 		  else if (c+1 < cEnd)
 		    then (
@@ -253,7 +264,11 @@ structure Array2 :> ARRAY2 =
 	  end
 
     fun appRM f {data, ncols, nrows} = A.app f data
-    fun appCM f {data, ncols, nrows} = let
+  (* NOTE: the column-major loops below index `data` *unchecked*, and their
+   * outer loop is driven by `nrows`; a degenerate `nrows x 0` array has no
+   * elements at all, so it has to be rejected up front.
+   *)
+    fun appCM f {data, ncols, nrows} = if (ncols = 0) then () else let
 	  val delta = A.length data - 1
 	  fun appf (i, k) = if (i < nrows)
 		then (f(unsafeSub(data, k)); appf(i+1, k+ncols))
@@ -284,7 +299,7 @@ structure Array2 :> ARRAY2 =
 	  end
 
     fun modifyRM f {data, ncols, nrows} = A.modify f data
-    fun modifyCM f {data, ncols, nrows} = let
+    fun modifyCM f {data, ncols, nrows} = if (ncols = 0) then () else let
 	  val delta = A.length data - 1
 	  fun modf (i, k) = if (i < nrows)
 		then (unsafeUpdate(data, k, f(unsafeSub(data, k))); modf(i+1, k+ncols))
@@ -313,7 +328,7 @@ structure Array2 :> ARRAY2 =
 	  end
 
     fun foldRM f init {data, ncols, nrows} = A.foldl f init data
-    fun foldCM f init {data, ncols, nrows} = let
+    fun foldCM f init {data, ncols, nrows} = if (ncols = 0) then init else let
 	  val delta = A.length data - 1
 	  fun foldf (i, k, accum) = if (i < nrows)
 		then foldf (i+1, k+ncols, f(unsafeSub(data, k), accum))
