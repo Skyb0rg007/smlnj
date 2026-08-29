@@ -1,6 +1,7 @@
 functor CLexFun(structure Tokens : C_TOKENS 
 			 structure TokTable : TOKENTABLE 
-			 sharing TokTable.Tokens = Tokens)  = struct
+			 sharing TokTable.Tokens = Tokens)
+  = struct
 
     structure yyInput : sig
 
@@ -99,8 +100,8 @@ functor CLexFun(structure Tokens : C_TOKENS
 
       end
 
-    datatype yystart_state = 
-C | S | INITIAL
+    datatype yystart_state = C | S | INITIAL
+
     structure UserDeclarations = 
       struct
 
@@ -219,6 +220,7 @@ fun special_char(c,fst,last,errWarn:errWarn) =
 
 
 
+
       end
 
     datatype yymatch 
@@ -230,6 +232,7 @@ fun special_char(c,fst,last,errWarn:errWarn) =
 
     val yytable = 
 Vector.fromList []
+
     fun mk yyins = let
         (* current start state *)
         val yyss = ref INITIAL
@@ -242,7 +245,8 @@ Vector.fromList []
 	fun yymktext(strm) = yyInput.subtract (strm, !yystrm)
         open UserDeclarations
         fun lex 
-(yyarg as ({comLevel,errWarn,sourceMap,charlist,stringstart})) () = let 
+(yyarg as ({comLevel,errWarn,sourceMap,charlist,stringstart})) () 
+ = let 
      fun continue() = let
             val yylastwasn = yyInput.lastWasNL (!yystrm)
             fun yystuck (yyNO_MATCH) = raise Fail "stuck state"
@@ -371,7 +375,7 @@ fun yyAction32 (strm, lastMatch : yymatch) = (yystrm := strm;
 fun yyAction33 (strm, lastMatch : yymatch) = (yystrm := strm;
       (Tokens.DEC(yypos,yypos+2)))
 fun yyAction34 (strm, lastMatch : yymatch) = (yystrm := strm;
-      (Tokens.ARROW(yypos,yypos+1)))
+      (Tokens.ARROW(yypos,yypos+2)))
 fun yyAction35 (strm, lastMatch : yymatch) = (yystrm := strm;
       (Tokens.DIVIDE(yypos,yypos+1)))
 fun yyAction36 (strm, lastMatch : yymatch) = (yystrm := strm;
@@ -1832,26 +1836,26 @@ fun yyQ25 (strm, lastMatch : yymatch) = (case (yygetc(strm))
         | SOME(inp, strm') => yyAction12(strm, yyNO_MATCH)
       (* end case *))
 fun yyQ24 (strm, lastMatch : yymatch) = (case (yygetc(strm))
-       of NONE => yystuck(lastMatch)
+       of NONE => yyAction12(strm, yyNO_MATCH)
         | SOME(inp, strm') =>
             if inp = #"0"
-              then yyQ25(strm', lastMatch)
+              then yyQ25(strm', yyMATCH(strm, yyAction12, yyNO_MATCH))
             else if inp < #"0"
-              then yystuck(lastMatch)
+              then yyAction12(strm, yyNO_MATCH)
             else if inp <= #"7"
-              then yyQ25(strm', lastMatch)
-              else yystuck(lastMatch)
+              then yyQ25(strm', yyMATCH(strm, yyAction12, yyNO_MATCH))
+              else yyAction12(strm, yyNO_MATCH)
       (* end case *))
 fun yyQ19 (strm, lastMatch : yymatch) = (case (yygetc(strm))
-       of NONE => yyAction15(strm, yyNO_MATCH)
+       of NONE => yyAction12(strm, yyNO_MATCH)
         | SOME(inp, strm') =>
             if inp = #"0"
-              then yyQ24(strm', yyMATCH(strm, yyAction15, yyNO_MATCH))
+              then yyQ24(strm', yyMATCH(strm, yyAction12, yyNO_MATCH))
             else if inp < #"0"
-              then yyAction15(strm, yyNO_MATCH)
+              then yyAction12(strm, yyNO_MATCH)
             else if inp <= #"7"
-              then yyQ24(strm', yyMATCH(strm, yyAction15, yyNO_MATCH))
-              else yyAction15(strm, yyNO_MATCH)
+              then yyQ24(strm', yyMATCH(strm, yyAction12, yyNO_MATCH))
+              else yyAction12(strm, yyNO_MATCH)
       (* end case *))
 fun yyQ18 (strm, lastMatch : yymatch) = (case (yygetc(strm))
        of NONE => yyAction11(strm, yyNO_MATCH)
@@ -2020,6 +2024,7 @@ in
     | INITIAL => yyQ2(!(yystrm), yyNO_MATCH)
   (* end case *))
 end
+
             end
 	  in 
             continue() 	  
