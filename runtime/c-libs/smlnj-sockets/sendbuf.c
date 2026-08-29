@@ -14,7 +14,10 @@
  *
  * Send data from the buffer; bytes is either a Word8Array.array, or
  * a Word8Vector.vector.  The arguemnts are: socket, data buffer, start
- * position, number of bytes, OOB flag, and don't_route flag.
+ * position, number of bytes, don't_route flag, and OOB flag.
+ *
+ * NOTE: the flag order must agree with `sendV`/`sendA` in
+ * system/Basis/Implementation/Sockets/socket.sml, which pass (don't_route, oob).
  */
 ml_val_t _ml_Sock_sendbuf (ml_state_t *msp, ml_val_t arg)
 {
@@ -26,8 +29,8 @@ ml_val_t _ml_Sock_sendbuf (ml_state_t *msp, ml_val_t arg)
 
   /* initialize the flags */
     flgs = 0;
-    if (REC_SEL(arg, 4) == ML_true) flgs |= MSG_OOB;
-    if (REC_SEL(arg, 5) == ML_true) flgs |= MSG_DONTROUTE;
+    if (REC_SEL(arg, 4) == ML_true) flgs |= MSG_DONTROUTE;
+    if (REC_SEL(arg, 5) == ML_true) flgs |= MSG_OOB;
 
     n = send (sock, data, nbytes, flgs);
 
