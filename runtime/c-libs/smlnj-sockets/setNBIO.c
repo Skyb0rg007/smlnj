@@ -20,14 +20,14 @@ ml_val_t _ml_Sock_setNBIO (ml_state_t *msp, ml_val_t arg)
     int		sock = REC_SELINT(arg, 0);
 
 #ifdef USE_FCNTL_FOR_NBIO
-    n = fcntl(F_GETFL, sock);
+    n = fcntl(sock, F_GETFL);
     if (n < 0)
 	return RAISE_SYSERR (msp, n);
     if (REC_SEL(arg, 1) == ML_true)
 	n |= O_NONBLOCK;
     else
 	n &= ~O_NONBLOCK;
-    sts = fcntl(F_SETFL, sock, n);
+    sts = fcntl(sock, F_SETFL, n);
 #else
     n = (REC_SEL(arg, 1) == ML_true);
     sts = ioctl (sock, FIONBIO, (unsigned long *)&n);
