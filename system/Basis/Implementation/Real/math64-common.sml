@@ -394,13 +394,24 @@ structure Math64Common : sig
 	      else 0.5 * (a - 1.0 / a)
 	  end
 
-    fun tanh u = let
-	  val a = exp u
-	  val b = 1.0 / a
-	  in
-	    if a==0.0
-	      then copysign(1.0,u)
-	      else (a-b) / (a+b)
-	  end
+  (* `tanh u` is exactly `±1.0` in double precision for `|u| >= 19.07`, and the
+   * `(a-b)/(a+b)` formula below breaks down long before the `a = exp u = 0`
+   * test that used to guard it ever fires: for `u > ~709.8` we have `a = inf`
+   * and `b = 0`, and for `~745.2 < u < ~709.4` we have `a` subnormal and
+   * `b = 1.0/a = inf`.  Both compute `inf/inf` and yield NaN, so e.g.
+   * `tanh 1000.0` and `tanh ~710.0` used to return NaN (while `tanh ~1000.0`,
+   * where `exp` underflows all the way to zero, returned the correct `~1.0`).
+   * Testing the magnitude of `u` up front avoids both windows.
+   *)
+    fun tanh u = if u > 20.0
+	    then 1.0
+	  else if u < ~20.0
+	    then ~1.0
+	    else let
+	      val a = exp u
+	      val b = 1.0 / a
+	      in
+		(a-b) / (a+b)
+	      end
 
   end
