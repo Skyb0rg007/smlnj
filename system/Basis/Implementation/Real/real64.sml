@@ -188,7 +188,12 @@ structure Real64Imp : REAL =
                     else if e < ~1020
                          then if e < ~1200 then 0.0
                            else let fun f(i,x) = if i=0 then x else f(i-1, x*0.5)
-                                 in f(1020-e, Assembly.A.scalb(m, ~1020))
+                                 (* `scalb(m, ~1020)` is `m * 2^~1020`, so we
+                                  * must halve it `~1020 - e` more times to get
+                                  * `m * 2^e` (mirroring the `e > 1020` case,
+                                  * which doubles `e - 1020` times).
+                                  *)
+                                 in f(~1020-e, Assembly.A.scalb(m, ~1020))
                                 end
                          else Assembly.A.scalb(m,e)  (* This is the common case! *)
                   else let
@@ -283,31 +288,37 @@ structure Real64Imp : REAL =
                       then fromBits(W64.orb(rSign, infBits))
                       else fromBits(W64.orb(rSign, ef))
                   end
-            (* decrement the magnitude of r by one ulp *)
+            (* decrement the magnitude of r by one ulp.  This function is only
+             * called when `r` is a non-zero normal/subnormal number, so the
+             * exponent-and-fraction field is >= 1 and the subtraction cannot
+             * underflow.  Note that the result may well be subnormal (that is
+             * the correct answer; stepping down from the smallest normal number
+             * yields the largest subnormal number) and that `ef = 0` correctly
+             * denotes ±zero.
+             *)
             fun stepDn () = let
                   val ef = W64.andb(rBits, expAndFracMask) - 0w1
                   in
-                    if (ef < 0wx0010000000000000)
-                      (* underflow, so return ±zero *)
-                      then fromBits rSign
-                      else fromBits(W64.orb(rSign, ef))
+                    fromBits(W64.orb(rSign, ef))
                   end
             in
               if (rExp = expMask)
                 then r  (* r is either a NaN or infinity so return it *)
-              else if (tExp = expMask)
-                then if (tFrac <> 0w0)
-                  then t (* t is a NaN, so return it *)
-                  else if (rSign = tSign)
-                    (* t is infinity with the same sign as r, so make r bigger *)
-                    then stepUp ()
-                    (* t is infinity with the opposite sign as r, so make r smaller *)
-                    else stepDn ()
-              (* both r and t are normal/subnormal numbers *)
+              else if (tExp = expMask) andalso (tFrac <> 0w0)
+                then t (* t is a NaN, so return it *)
+              (* note that the `r = ±0.0` test must precede the "t is an
+               * infinity" test below, since `stepDn` requires a non-zero `r`.
+               *)
               else if (W64.orb(rExp, rFrac) = 0w0)
                 (* rExp = 0 && rFrac = 0 ==> r = ±0.0 *)
                 then fromBits(W64.orb(tSign, 0w1)) (* ± minimum subnormal *)
-              (* bit r and t are non-zero normal/subnormal numbers *)
+              else if (tExp = expMask)
+                then if (rSign = tSign)
+                  (* t is infinity with the same sign as r, so make r bigger *)
+                  then stepUp ()
+                  (* t is infinity with the opposite sign as r, so make r smaller *)
+                  else stepDn ()
+              (* both r and t are non-zero normal/subnormal numbers *)
               else if (rSign <> tSign)
                 (* when different signs, move `r` toward 0 *)
                 then stepDn()
