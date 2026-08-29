@@ -72,11 +72,31 @@ let
 	in norm(arrType, (Aggregate charInits)::rest)
        end
     | arrNorm (arrType, baseType, maxOp) origInits =
-       let val max = case maxOp of
-			 SOME l => LargeInt.toInt l
-		       | _ => length origInits
+       (* For an array of KNOWN length we lay out exactly that many
+	* elements.  For an incomplete array type (`T a[] = {...}') the
+	* length is however many elements the initializers turn out to
+	* fill, which is NOT the same as the number of top-level
+	* initializers: with brace elision a single array element of
+	* aggregate type consumes several of them.  E.g. for
+	*   struct foo {int a[3]; int b;};
+	*   struct foo z[] = {{2,3,4},{5},{1,42,44,13},1,2,2,2,{3},4};
+	* the nine initializers fill SIX elements (the run `1,2,2,2'
+	* fills all of element 3), so `z' is a struct foo[6], as gcc and
+	* ISO C 6.7.8 agree.  Sizing it by `length origInits' made it a
+	* struct foo[9] with three spurious all-zero elements.
+	*
+	* `length origInits' survives only as a loop bound, to guarantee
+	* termination in the degenerate case where an element type
+	* consumes no initializers at all (e.g. a struct all of whose
+	* members are unnamed bitfields). *)
+       let val maxOpt = case maxOp of SOME l => SOME (LargeInt.toInt l) | _ => NONE
+	   val bound = length origInits
+	   fun done (i, inits) =
+	       case maxOpt
+		 of SOME max => i = max
+		  | NONE => null inits orelse i >= bound
 	   fun loop(i, inits) = 
-	       if (i=max) then ([], inits)
+	       if done (i, inits) then ([], inits)
 	       else let val (elemInit,remainder) = norm(baseType, inits)
 			val (elemInits,remainder') = loop (i+1,remainder)
 		     in (elemInit::elemInits, remainder')
