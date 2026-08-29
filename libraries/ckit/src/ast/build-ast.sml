@@ -2999,16 +2999,26 @@ end old code ******)
 		  | Ast.Neq    => SOME (if i <> i' then 1 else 0)
 		  | Ast.And    => SOME (if i<>0 andalso i'<>0 then 1 else 0)
 		  | Ast.Or     => SOME (if i<>0 orelse i'<>0 then 1 else 0)
-		  | Ast.BitOr  => 
-		      SOME (W.toLargeInt (W.orb (W.fromLargeInt i, W.fromLargeInt i')))  
-		  | Ast.BitXor => 
-		      SOME (W.toLargeInt (W.xorb (W.fromLargeInt i, W.fromLargeInt i')))  
-		  | Ast.BitAnd => 
-		      SOME (W.toLargeInt (W.andb (W.fromLargeInt i, W.fromLargeInt i')))  
-		  | Ast.Lshift => 
-		      SOME (W.toLargeInt (W.<< (W.fromLargeInt i, W.fromLargeInt i')))  
+		  (* NB: the bitwise and shift operators must be evaluated with
+		   * arbitrary-precision two's-complement semantics (LargeInt =
+		   * IntInf), NOT by round-tripping through Word.  Word is 63
+		   * bits wide on a 64-bit SML/NJ -- a width no C integer type
+		   * has -- and Word.toLargeInt is unsigned, so folding through
+		   * it turned every result whose top bit was set into a large
+		   * POSITIVE number: `~0' came out as 2^63-1 rather than -1. *)
+		  | Ast.BitOr  => SOME (IntInf.orb (i, i'))
+		  | Ast.BitXor => SOME (IntInf.xorb (i, i'))
+		  | Ast.BitAnd => SOME (IntInf.andb (i, i'))
+		  | Ast.Lshift =>
+		      (* a negative or absurdly large shift count is undefined
+		       * in C; refuse to fold rather than build a huge IntInf *)
+		      if i' < 0 orelse i' > 1024 then NONE
+		      else SOME (IntInf.<< (i, Word.fromLargeInt i'))
 		  | Ast.Rshift =>
-		      SOME (W.toLargeInt (W.>> (W.fromLargeInt i, W.fromLargeInt i')))
+		      (* C's >> on a signed value is an ARITHMETIC shift *)
+		      if i' < 0 then NONE
+		      else if i' > 1024 then SOME (if i < 0 then ~1 else 0)
+		      else SOME (IntInf.~>> (i, Word.fromLargeInt i'))
 	       | _      => NONE
 	    end
 	  else
@@ -3026,7 +3036,7 @@ end old code ******)
 		 of Ast.Negate => SOME (~i)
 		  | Ast.Not    => SOME (if i = 0 then 1 else 0)
 		  | Ast.Uplus  => SOME i
-		  | Ast.BitNot => SOME (W.toLargeInt (W.notb (W.fromLargeInt i)))
+		  | Ast.BitNot => SOME (IntInf.notb i)
 		  | _      => NONE
 	    end
 	  else NONE
