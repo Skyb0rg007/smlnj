@@ -47,7 +47,17 @@ structure Coverage : sig
 	    Array.update (a, idx, Array.sub (a, idx) + 1)
 	    handle General.Subscript =>
 		   let val olen = Array.length a
-		       val nlen = Int.min (idx + 1, olen + olen)
+		       (* must be Int.max: the new array has to be long
+			* enough to hold idx (that is what `cp' below
+			* assumes), with doubling as the growth policy.
+			* With Int.min, a counter index more than twice
+			* the current length -- which is the normal case,
+			* since a module's counters start at the base
+			* TDP.reserve handed out -- grew the array without
+			* ever reaching idx, so this increment was
+			* silently dropped and the same happened on every
+			* subsequent call until doubling caught up. *)
+		       val nlen = Int.max (idx + 1, olen + olen)
 		       fun cp i = if i < olen then Array.sub (a, i)
 				  else if i = idx then 1
 				  else 0
