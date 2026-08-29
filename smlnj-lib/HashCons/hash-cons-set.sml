@@ -221,7 +221,12 @@ structure HashConsSet : HASH_CONS_SET =
     val foldr = fold	(* DEPRECATED *)
 
   (* return an ordered list of the items in the set. *)
-    fun toList s = foldr (fn (x, l) => x::l) [] s
+    fun toList (SET(_, t)) = let
+	  fun toL (E, l) = l
+	    | toL (T(_, a, x, b), l) = toL(a, x :: toL(b, l))
+	  in
+	    toL (t, [])
+	  end
 
   (* functions for walking the tree while keeping a stack of parents
    * to be visited.
