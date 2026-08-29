@@ -4,7 +4,7 @@
  * All rights reserved.
  *
  * This file rebinds various target-dependent basis module names to
- * their 2004 versions (32-bit version)
+ * their 2004 versions (64-bit version)
  *)
 
 structure Word63 : WORD = Word63
