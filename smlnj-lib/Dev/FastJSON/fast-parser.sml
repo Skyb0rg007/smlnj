@@ -339,9 +339,9 @@ structure FastJSONParser : sig
                             val (d1, inS) = getDigit inS
                             val (d2, inS) = getDigit inS
                             val (d3, inS) = getDigit inS
-                            val n = W.<<(d0, 0w24)
-                                  + W.<<(d1, 0w16)
-                                  + W.<<(d2, 0w8)
+                            val n = W.<<(d0, 0w12)
+                                  + W.<<(d1, 0w8)
+                                  + W.<<(d2, 0w4)
                                   + d3
                             in
                               (n, inS)
@@ -375,31 +375,33 @@ structure FastJSONParser : sig
                             else if (w <= 0wx7ff)
                               then scan (inS,
                                 n+2,
-                                w2c(W.orb(0wxc0, W.>>(w, 0w6)))
-                                  :: w2c(W.orb(0wx80, W.andb(w, 0wx3f)))
+                                w2c(W.orb(0wx80, W.andb(w, 0wx3f)))
+                                  :: w2c(W.orb(0wxc0, W.>>(w, 0w6)))
                                   :: cs)
                             else if (w <= 0wxffff)
                               then scan (inS,
                                 n+3,
-                                w2c(W.orb(0wxe0, W.>>(w, 0w12)))
+                                w2c(W.orb(0wx80, W.andb(w, 0wx3f)))
                                   :: w2c(W.orb(0wx80, W.andb(W.>>(w, 0w6), 0wx3f)))
-                                  :: w2c(W.orb(0wx80, W.andb(w, 0wx3f)))
+                                  :: w2c(W.orb(0wxe0, W.>>(w, 0w12)))
                                   :: cs)
                             else if (w <= 0wx10ffff)
                               then scan (inS,
                                 n+4,
-                                w2c(W.orb(0wxf0, W.>>(w, 0w18)))
-                                  :: w2c(W.orb(0wx80, W.andb(W.>>(w, 0w12), 0wx3f)))
+                                w2c(W.orb(0wx80, W.andb(w, 0wx3f)))
                                   :: w2c(W.orb(0wx80, W.andb(W.>>(w, 0w6), 0wx3f)))
-                                  :: w2c(W.orb(0wx80, W.andb(w, 0wx3f)))
+                                  :: w2c(W.orb(0wx80, W.andb(W.>>(w, 0w12), 0wx3f)))
+                                  :: w2c(W.orb(0wxf0, W.>>(w, 0w18)))
                                   :: cs)
                               else error'(InvalidUnicodeEscape, inS)
                       in
                         if (u0 < 0wxD800)
                           then toUTF8 (inS, u0)
-                        else if (u0 <= 0wxDBFF)
+                        else if (u0 <= 0wxDBFF) (* D800-DBFF: high surrogate *)
                           then scanLowSurrogate inS
-                          else error'(InvalidUnicodeEscape, inS)
+                        else if (u0 <= 0wxDFFF) (* DC00-DFFF: low surrogate *)
+                          then error'(InvalidUnicodeSurrogatePair, inS)
+                        else toUTF8 (inS, u0)
                       end (* scanUnicodeEscape *)
                 (* a simple state machine for getting a valid UTF-8 byte sequence.  See
                  * https://unicode.org/mail-arch/unicode-ml/y2003-m02/att-0467/01-The_Algorithm_to_Valide_an_UTF-8_String
@@ -516,7 +518,7 @@ structure FastJSONParser : sig
                         | (#".", inS) => scanFrac (inS, digits)
                         | (#"e", inS) => scanExp (inS, digits, [])
                         | (#"E", inS) => scanExp (inS, digits, [])
-                        | _ => if (n < maxDigits)
+                        | _ => if (n <= maxDigits)
                               then let
                                 fun cvt ([], k) = (JSON.INT(if isNeg then ~k else k), inS)
                                   | cvt (d::ds, k) =
