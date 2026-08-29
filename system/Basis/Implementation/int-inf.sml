@@ -406,7 +406,29 @@ structure IntInfImp :> INT_INF = struct
     val rem = CoreIntInf.rem
     val compare = CoreIntInf.compare
     val abs = CoreIntInf.abs
-    val pow = CoreIntInf.pow
+
+  (* `CoreIntInf.pow` yields 0 for *every* negative exponent (other than for a
+   * zero base, where it correctly raises `Div`), but the Basis specifies that
+   * for `j < 0` the result is `i^j` when `|i| = 1`; only `|i| > 1` gives 0.
+   * That is, `pow(1, j) = 1` and `pow(~1, j)` is `~1` for odd `j` and `1` for
+   * even `j`.
+   *)
+    local
+      val corePow = CoreIntInf.pow
+      val posOne = abstract (BI{negative = false, digits = [0w1]})
+      val negOne = abstract (BI{negative = true, digits = [0w1]})
+    in
+    fun pow (i, n) = if InlineT.Int.>=(n, 0)
+	  then corePow (i, n)
+	  else (case concrete i
+	     of BI{digits = [0w1], negative} =>
+		  if negative andalso InlineT.Int.<>(InlineT.Int.andb(n, 1), 0)
+		    then negOne
+		    else posOne
+	      (* `i = 0` raises `Div`; `|i| > 1` gives 0 *)
+	      | _ => corePow (i, n)
+	    (* end case *))
+    end (* local *)
 
     fun max arg = case compare arg of GREATER => #1 arg | _ => #2 arg
     fun min arg = case compare arg of LESS => #1 arg | _ => #2 arg
