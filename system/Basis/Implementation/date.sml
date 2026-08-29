@@ -254,6 +254,9 @@ structure Date : DATE =
   (* return the number of days in a given year *)
     fun yearLength year = if isLeapYear year then 366 else 365
     end
+
+  (* the absolute day number of the UNIX epoch (January 1, 1970) *)
+    val epochDay = toAbsoluteDay{year = 1970, month = 1, day = 1}
 (* DEBUG **
   (* some internal test cases *)
     local
@@ -359,20 +362,29 @@ structure Date : DATE =
     fun fromTimeUniv t = tm2date (gmTime t, SOME Time.zeroTime)
 
   (* return the UTC time corresponding to the given date. *)
-    fun toTime (date as DATE{offset, ...}) = let
-	  val t = mkTime' (date2tm date)
-	  in
-	    case offset
-	     of NONE => nsToTime t
-	      | SOME offset => let
-                  (* adjust the local time to UTC *)
-                  val utcT = Time.-(nsToTime t, localOffsetForTime t)
-                  in
-                    (* add the date's offset *)
-                    Time.+(utcT, offset)
-                  end
-	    (* end case *)
-	  end
+    fun toTime (date as DATE{offset, ...}) = (case offset
+	   of NONE =>
+	      (* the date's fields denote a time in the local time zone, which is
+	       * exactly what mkTime' (i.e., mktime(3)) interprets them as.
+	       *)
+		nsToTime (mkTime' (date2tm date))
+	    | SOME off => let
+	      (* the date's fields denote a time in the time zone that is `off`
+	       * *west* of UTC (see the Basis spec for `Date.date`), so the
+	       * corresponding UTC time is the fields interpreted as UTC plus the
+	       * offset.  Note that the local time zone plays no role here, so we
+	       * must not use mkTime'/mktime, which always interprets its argument
+	       * as local time.
+	       *)
+		val DATE{year, month, day, hour, minute, second, ...} = date
+		val days = toAbsoluteDay{
+			year = year, month = monthToInt month + 1, day = day
+		      } - epochDay
+		val secs = ((days * 24 + hour) * 60 + minute) * 60 + second
+		in
+		  Time.+(Time.fromSeconds(Int.toLarge secs), off)
+		end
+	  (* end case *))
 
   (* date comparison does not take into account the offset
    * thus, it does not compare dates in different time zones
