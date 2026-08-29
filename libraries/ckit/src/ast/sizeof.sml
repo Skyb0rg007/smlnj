@@ -126,7 +126,7 @@ struct
            if b>0 then
 		1. if b > size then indicate error.
 		2. alignmentSoFar := max(alignmentSoFar, align)
-		3. if (nextBit + b) div size <> nextBit div size
+		3. if (nextBit + b - 1) div size <> nextBit div size
 	           /* i.e. adding this field would cross a "size" boundary */
 		       pad nextBit to next "size" boundary
                 4. struct[field] := nextBit
@@ -203,12 +203,17 @@ struct
 			 else Int.max (alignmentSoFar,align)
 	       | SOME _ => Int.max (alignmentSoFar,align))
 	    val fieldStartBit = (* pad out if we cross a "size" boundary *)
-	      if (nextBit + bits) div size = nextBit div size
+	      (* NB: the field occupies bits [nextBit, nextBit+bits), so the
+	       * last bit it uses is nextBit+bits-1.  Testing nextBit+bits
+	       * (as the algorithm sketch above does) reports a straddle for
+	       * a field that ends exactly ON a boundary, e.g. `unsigned a:1;
+	       * unsigned b:31;', which does fit in one 32-bit unit. *)
+	      if (nextBit + bits - 1) div size = nextBit div size
 		then nextBit
 	      else padToBoundary{bits=nextBit, boundary=size}
 	  in (* NB: checking for error case of (bits > size) is done in fieldSizeStruct *)
-	    {field={memberOpt=memberOpt, bitOffset=nextBit},
-	     nextBit=nextBit + bits,
+	    {field={memberOpt=memberOpt, bitOffset=fieldStartBit},
+	     nextBit=fieldStartBit + bits,
 	     alignmentSoFar=alignmentSoFar,
 	     lastFieldWasBitField=true}
 	  end
