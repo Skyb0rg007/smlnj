@@ -143,7 +143,16 @@ structure TimeImp : sig
 		    NONE => NONE
 		  | SOME (wh, s', _) =>
 		      (case getc s' of
-			   SOME (#".", s'') => fractional (wh, s'')
+			   SOME (#".", s'') =>
+			     (* if no digits follow the ".", then the "." is not
+			      * part of the time value (the syntax is
+			      * [+~-]?([0-9]+(\.[0-9]+)? | \.[0-9]+)), so we back
+			      * up and return just the whole part.
+			      *)
+			     (case fractional (wh, s'')
+			       of NONE => return (wh * 1000000, s')
+				| res => res
+			      (* end case *))
 			 | _ => return (wh * 1000000, s'))
 	in
 	    case getc s of
