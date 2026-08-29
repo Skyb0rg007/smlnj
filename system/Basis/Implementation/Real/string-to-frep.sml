@@ -58,7 +58,28 @@ structure StringToFRep : sig
                         if (d <= 0w9)
                           then scanWhole (cs', sign, n+1, W.toIntX d :: digits)
                         else if (d = ptCode)
-                          then scanFrac (cs', sign, n, 0, digits)
+                          (* the Basis grammar for a real is
+                           *   [+~-]?([0-9]+(.[0-9]+)? | .[0-9]+)([eE][+~-]?[0-9]+)?
+                           * so a "." is part of the number only when at least
+                           * one digit follows it; otherwise we must leave the
+                           * "." in the stream (cf. `noExponent` in `scanExp`
+                           * below, which backtracks the same way for a "e"
+                           * with no exponent digits after it).  Consuming it
+                           * unconditionally not only mis-reported how much of
+                           * the stream was used for input like "1.", it also
+                           * produced a wrong *value* for input like "1.e5"
+                           * (100000.0 instead of 1.0, leaving ".e5" unread).
+                           *)
+                          then (case getc cs'
+                             of SOME(c', cs'') => let val d' = U.code c'
+                                  in
+                                    if (d' <= 0w9)
+                                      then scanFrac (cs'', sign, n, 1,
+                                             W.toIntX d' :: digits)
+                                      else mkNoExp (cs, sign, n, 0, digits)
+                                  end
+                              | NONE => mkNoExp (cs, sign, n, 0, digits)
+                            (* end case *))
                         else if (d = eCode)
                           then scanExp (cs, cs', sign, n, 0, digits)
                           else mkNoExp (cs, sign, n, 0, digits)
