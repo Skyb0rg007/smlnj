@@ -857,10 +857,18 @@ functor TextIOFn (
 	  in
 	    SV.mPut (strm, strm'); v
 	  end
-    fun input1 strm = (case StreamIO.input1(SV.mTake strm)
-	   of NONE => NONE
-	    | (SOME(elem, strm')) => (SV.mPut (strm, strm'); SOME elem)
-	  (* end case *))
+  (* NOTE: the instream m-variable is EMPTY between the mTake and the mPut,
+   * so every path out of here (including end-of-stream) must put a stream
+   * back; otherwise every later operation on this instream blocks forever.
+   *)
+    fun input1 strm = let
+	  val s = SV.mTake strm
+	  in
+	    case StreamIO.input1 s
+	     of NONE => (SV.mPut (strm, s); NONE)
+	      | (SOME(elem, strm')) => (SV.mPut (strm, strm'); SOME elem)
+	    (* end case *)
+	  end
     fun inputN (strm, n) = let val (v, strm') = StreamIO.inputN (SV.mTake strm, n)
 	  in
 	    SV.mPut (strm, strm'); v
@@ -971,9 +979,17 @@ functor TextIOFn (
 	    handle ex => raise IO.Io{function="openAppend", name=fname, cause=ex}
 
   (** Text stream specific operations **)
-    fun inputLine strm =
-	Option.map (fn (s, strm') => (SV.mPut (strm, strm'); s))
-	           (StreamIO.inputLine (SV.mTake strm))
+  (* NOTE: as for input1 above, the end-of-stream case must also put the
+   * stream back into the m-variable.
+   *)
+    fun inputLine strm = let
+	  val s = SV.mTake strm
+	  in
+	    case StreamIO.inputLine s
+	     of NONE => (SV.mPut (strm, s); NONE)
+	      | (SOME(res, strm')) => (SV.mPut (strm, strm'); SOME res)
+	    (* end case *)
+	  end
     fun outputSubstr (strm, ss) = StreamIO.outputSubstr (SV.mGet strm, ss)
     fun openString src =
 	  mkInstream(StreamIO.mkInstream(OSPrimIO.strReader src, empty))
