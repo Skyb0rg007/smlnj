@@ -272,15 +272,24 @@ functor TextIOFn (
 		    val len = V.length data
 		    val remain = len - i
 		    in
+		    (* NOTE: `n` is the number of elements still *needed*; if this
+		     * buffer covers them, then all `amount` requested elements are
+		     * available (the earlier buffers in the chain supplied the rest).
+		     *)
 		      if (remain >= n)
-			then SOME n
+			then SOME amount
 			else nextBuf (buf, n - remain)
 		    end
-	      and nextBuf (IBUF{more, ...}, n) = (case !more
-		     of (MORE buf) => tryInput (buf, 0, n)
+	      and nextBuf (buf as IBUF{more, ...}, n) = (case !more
+		     of (MORE buf') => tryInput (buf', 0, n)
 		      | (EOS _) => SOME(amount - n)
 		      | TERMINATED => SOME(amount - n)
 		      | NOMORE => ((
+			(* NOTE: it is essential that we extend `buf` (the *last*
+			 * buffer in the chain), not the buffer that this stream
+			 * points at; extending the wrong one overwrites its `more`
+			 * link and silently drops the rest of the chain.
+			 *)
 			  case extendStream (readVecNB, "canInput", buf)
 			   of (MORE b) => tryInput (b, 0, n)
 			    | _ => SOME(amount - n)
