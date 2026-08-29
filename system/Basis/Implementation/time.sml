@@ -141,10 +141,15 @@ structure TimeImp : sig
                  of NONE => NONE
 		  | SOME(wh, s', _) => (case getc s'
                      of SOME(#".", s'') => (case getc s''
+                         (* if no digits follow the ".", then the "." is not
+                          * part of the time value (the syntax is
+                          * [+~-]?([0-9]+(\.[0-9]+)? | \.[0-9]+)), so we back
+                          * up to before the "." and return just the whole part.
+                          *)
                          of SOME(c, _) => if Char.isDigit c
                               then fractional (wh, s'')
-                              else return (wh * 1000000, s'')
-                          | NONE => return (wh * 1000000, s'')
+                              else return (wh * 1000000, s')
+                          | NONE => return (wh * 1000000, s')
                         (* end case *))
                       | _ => return (wh * 1000000, s')
                     (* end case *))
