@@ -104,7 +104,13 @@ structure Math64Common : sig
 	  in
 	    if (biasedExp = 0)
 	      then scalb(x * two_to_the_54, I.-(k, 54))			(*2*)
-	    else if I.ltu(I.+(k, biasedExp), 2047)
+	  (* the result's biased exponent is `k+biasedExp`; the unsigned test
+	   * below is `1 <= k+biasedExp <= 2046`, i.e. the result is normal.
+	   * Note that 0 must be excluded along with 2047: it is the biased
+	   * exponent of a *subnormal* result, and `Assembly.A.scalb` flushes
+	   * those to zero.  Subnormal results are handled by case (*4*).
+	   *)
+	    else if I.ltu(I.-(I.+(k, biasedExp), 1), 2046)
 	      then Assembly.A.scalb(x,k)				(*1*)
 	      else let
 	      (* unbias exponent and add to k *)
