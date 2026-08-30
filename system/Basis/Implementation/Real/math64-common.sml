@@ -205,7 +205,15 @@ structure Math64Common : sig
     fun exp (x:real) = let  (* propagates and generates inf's and nan's correctly *)
 	  fun exp_norm x = let
 	      (* argument reduction : x --> x - k*ln2 *)
-		val k = floor(invln2*x+copysign(half,x)) (* k=NINT(x/ln2) *)
+	      (* the 4.3BSD original wrote this as `(int)(invln2*x+copysign(.5,x))`,
+	       * where the C cast truncates toward zero and the `copysign` is what
+	       * makes that a round-to-nearest.  SML's `floor` already rounds toward
+	       * ~inf, so `floor(v+0.5)` is NINT for both signs; keeping the
+	       * `copysign` made `k` one too small for every negative `x`, which
+	       * pushed the reduced argument outside the interval that `exp__E`'s
+	       * approximation is valid on (errors of ~10^5 ulps).
+	       *)
+		val k = floor(invln2*x+half)             (* k=NINT(x/ln2) *)
 		val K = real k
 	      (* express x-k*ln2 as z+c *)
 		val hi = x-K*ln2hi
