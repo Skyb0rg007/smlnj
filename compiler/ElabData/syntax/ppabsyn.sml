@@ -708,7 +708,10 @@ and ppDec (context as (env,source_opt)) ppstrm =
 		   pps " = ";
 		   PP.break ppstrm {nsp=1,offset=2};
 		   ppStrexp context ppstrm (def,d-1))
-		| f _ _ = bug "ppDec:STRdec:STRB"
+		(* an earlier error yields ERRORstr; still print the name
+		 * rather than crashing the printer *)
+		| f ppstrm (STRB{name, ...}) =
+		    (PU.ppSym ppstrm name; pps " = <error>")
 	  in
 	      openHVBox 0;
 	      PU.ppvlist ppstrm ("structure ","and ", f, sbs);
@@ -721,7 +724,9 @@ and ppDec (context as (env,source_opt)) ppstrm =
 		   pps " = ";
 		   PP.break ppstrm {nsp=1,offset= 2};
 		   ppFctexp context ppstrm (def,d-1))
-		| f _ _ = bug "ppDec':FCTdec"
+		(* an earlier error yields ERRORfct; see STRdec above *)
+		| f ppstrm (FCTB{name=fname, ...}) =
+		    (PU.ppSym ppstrm fname; pps " = <error>")
 	  in
 	      openHVBox 0;
 	      PU.ppvlist ppstrm ("functor ","and ", f, fbs);
@@ -733,7 +738,8 @@ and ppDec (context as (env,source_opt)) ppstrm =
 		   case name of
 		       SOME s => PU.ppSym ppstrm s
                      | NONE => pps "ANONYMOUS")
-		| f _ _ = bug "ppDec':SIGdec"
+		(* an earlier error yields ERRORsig; see STRdec above *)
+		| f ppstrm _ = pps "signature <error>"
 	  in
 	      openHVBox 0;
 	      PU.ppSequence ppstrm {sep=PP.newline, pr=f,

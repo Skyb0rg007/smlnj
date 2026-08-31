@@ -126,7 +126,9 @@ fun sigToEnv(M.SIG {elements,...}) =
 	     | _ => env)
      in foldl bindElem SE.empty elements
     end
-  | sigToEnv _ = bug "sigToEnv"
+  (* an earlier error yields ERRORsig; an empty environment is the right
+   * answer for printing purposes, and avoids crashing the printer *)
+  | sigToEnv _ = SE.empty
 
 (* is_ppable_ConBinding : T.datacon * SE.staticEnv -> bool
  * Support for a hack to make sure that non-visible ConBindings don't
