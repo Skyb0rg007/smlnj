@@ -353,19 +353,45 @@ fun instrumDec' mayReturnMoreThanOnce (env, compInfo) absyn =
                            val ccvara' = makeEntry(name)
                            val lvar = tmpvar("fnvar",ty1,mkv);
 
-                           val exnMatch = CoreAccess.getCon env ["Match"]
-
-                           val RULE(_,special) = List.last l
+                        (* The instrumented lambda binds an irrefutable
+                         * variable pattern, so the WILDpat/raise-Match rule
+                         * that used to follow it was dead code.  Worse, it
+                         * made this an FNexp with TWO rules, which
+                         * translate.sml's mkExp0 rejects outright
+                         * ("mkExp0:FNexp:multiple rules") because a
+                         * post-match-compilation FNexp must be a single
+                         * variable-pattern lambda.  Emitting just the one rule
+                         * is semantically identical and is what translate
+                         * expects.  This also removes the `Reconstruct.expType`
+                         * call (and the `List.last` on a possibly-empty rule
+                         * list) that the dead rule required. *)
+                           (* This instrumentation runs AFTER match compilation
+                            * (see TopLevel/main/compile-fn.sml: elaborate ->
+                            * instrument -> translate), so a CASEexp built here
+                            * is never reduced and translate's mkExp0 rejects it
+                            * outright ("untranslateable expression") -- mkExp0
+                            * accepts LETVexp/SWITCHexp/VSWITCHexp but not
+                            * CASEexp.  At this point the FNexp carries exactly
+                            * one rule with a variable pattern (translate itself
+                            * requires that), and
+                            *     CASEexp(e, [RULE(VARpat v, body)])
+                            * is by definition
+                            *     LETVexp(v, e, body)
+                            * so emit the reduced form directly. *)
+                           val (irules, _, _) =
+                                 instrrules
+                                   (instrexp (anonSym::names, ccvara') true)
+                                   (l,ty1,ty2)
+                           val body =
+                                 (case irules
+                                    of [RULE(VARpat v, e)] =>
+                                         LETVexp(v, varexp lvar, e)
+                                     | _ => bug "instrexp:FNexp: expected a \
+                                                \single variable-pattern rule")
                         in FNexp ([RULE(VARpat(lvar),
                                         SEQexp ([BUMPCCexp(ccvara'),
                                            SETCURRENTexp(ccvara'),
-                                           CASEexp(varexp lvar,
-					     instrrules
-					       (instrexp (anonSym::names, ccvara') true)
-					       (l,ty1,ty2))])),
-                                   RULE(WILDpat,
-					RAISEexp(CONexp(exnMatch,[]),
-                                                 Reconstruct.expType special))],
+                                           body]))],
                                   ty1,ty2)
                        end
                    | MARKexp(e,region) => MARKexp(instr e, region)
@@ -386,18 +412,29 @@ fun instrumDec' mayReturnMoreThanOnce (env, compInfo) absyn =
       * up some time in the future. (ZHONG)
       *)
 
+   (* This instrumentation runs AFTER match compilation (compile-fn.sml:
+    * elaborate -> instrument -> translate), so a compound pattern written
+    * here is never reduced and translate's transVB rejects it
+    * ("unexpected compound or wild pat") -- it accepts only a variable
+    * pattern.  Bind the triple to a fresh variable and project the three
+    * components with RSELECTexp, which mkExp0 does accept.  (This also
+    * discharges the file's own "we should clean it up some time" note.) *)
      val absyn2 =
-       LOCALdec(VALdec[VB{pat=TUPLEpat[VARpat basevar,
-                                       VARpat countarrayvar,
-                                       VARpat currentvar],
-                          exp=APPexp(APPexp(VARexp(ref derefop,
-                                                   [ref(INSTANTIATED(profDerefTy))]),
-                                            varexp register),
-                                     STRINGexp(concat(rev(!entries)))),
-			  typ = T.UNDEFty,
-                          tyvars=ref nil,
-                          boundtvs=[]}],
-                absyn1)
+       let val proftupvar = tmpvar("proftup", profDerefTy, mkv)
+           fun vb (v, e) = VB{pat=VARpat v, exp=e, typ=T.UNDEFty,
+                              tyvars=ref nil, boundtvs=[]}
+        in LOCALdec(
+             VALdec[
+               vb (proftupvar,
+                   APPexp(APPexp(VARexp(ref derefop,
+                                        [ref(INSTANTIATED(profDerefTy))]),
+                                 varexp register),
+                          STRINGexp(concat(rev(!entries))))),
+               vb (basevar,       RSELECTexp(varexp proftupvar, 0)),
+               vb (countarrayvar, RSELECTexp(varexp proftupvar, 1)),
+               vb (currentvar,    RSELECTexp(varexp proftupvar, 2))],
+             absyn1)
+       end
 
   in absyn2
  end
