@@ -56,11 +56,25 @@ structure CheckUnused : sig
 	  ])
 
     fun check err = let
-	  fun warning (region, V.VALvar{path, access, ...}) =
-		err region ErrorMsg.WARN (concat [
-		    "variable ", Symbol.name (SymPath.first path),
-		    " is defined but not used"
-		  ]) ErrorMsg.nullErrorBody
+	(* Variables introduced by the match compiler must never be reported:
+	 * this check runs over the POST-match-compilation Absyn, so those
+	 * internal names are in scope here even though the user never wrote
+	 * them.  See matchcomp/preprocessing.sml, which creates "marg",
+	 * "fvar" and "rulevars".
+	 * (The principled alternative is to run this check BEFORE match
+	 * compilation, which is what the original author evidently assumed;
+	 * that is a larger change than filtering here.)
+	 *)
+	  fun isInternal name =
+		(name = "marg") orelse (name = "fvar") orelse (name = "rulevars")
+	  fun warning (region, V.VALvar{path, access, ...}) = let
+		val name = Symbol.name (SymPath.first path)
+		in
+		  if isInternal name then ()
+		  else err region ErrorMsg.WARN (concat [
+		      "variable ", name, " is defined but not used"
+		    ]) ErrorMsg.nullErrorBody
+		end
 	    | warning _ = () (* should never happen *)
 	(* compute the local variables used by an expression and also check any
 	 * nested declarations.
@@ -75,8 +89,8 @@ structure CheckUnused : sig
 		  | A.RECORDexp flds => List.foldl
 		      (fn ((_, e), used) => chkExp(region, e, used))
 			used flds
-		  | A.RSELECTexp(var, index) => raise Fail "unexpected RSELECTexp"
-		  | A.VSELECTexp(exp, _, index) => raise Fail "unexpected VSELECTexp"
+		  | A.RSELECTexp(e, _) => chkExp(region, e, used)
+		  | A.VSELECTexp(e, _, _) => chkExp(region, e, used)
 		  | A.VECTORexp(es, _) => List.foldl
 		      (fn (e, used) => chkExp(region, e, used))
 			used es
@@ -114,9 +128,20 @@ structure CheckUnused : sig
 			used es
 		  | A.CONSTRAINTexp(e, _) => chkExp(region, e, used)
 		  | A.MARKexp(e, region) => chkExp(region, e, used)
-		  | A.SWITCHexp _ => raise Fail "unexpected SWITCHexp"
-		  | A.VSWITCHexp _ => raise Fail "unexpected VSWITCHexp"
+		  | A.SWITCHexp(e, srules, dflt) => let
+		      val used = chkExp(region, e, used)
+		      val used = List.foldl (chkSRule region) used srules
+		      in
+			case dflt of NONE => used | SOME e => chkExp(region, e, used)
+		      end
+		  | A.VSWITCHexp(e, _, srules, dflt) => let
+		      val used = chkExp(region, e, used)
+		      val used = List.foldl (chkSRule region) used srules
+		      in
+			chkExp(region, dflt, used)
+		      end
 		(* end case *))
+	  and chkSRule region (A.SRULE(_, _, e), used) = chkExp(region, e, used)
 	  and chkRule region (A.RULE(p, e), used) =
 		chkPat false (region, p, chkExp (region, e, used))
 	(* check if any of the variables bound by a pattern are unused *)
