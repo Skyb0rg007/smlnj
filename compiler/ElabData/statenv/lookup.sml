@@ -165,7 +165,11 @@ fun lookExn (env, path, err) : T.datacon =
               AU.bogusEXN)
          | AS.VAR _ =>
              (otherError("found variable instead of exception", err);
-              AU.bogusEXN))
+              AU.bogusEXN)
+         (* lookIdPath returns ERRORid for an unbound path, having already
+          * reported the error via `err`; do not report it twice, and do not
+          * fall off the end of the match (which raised Match here). *)
+         | AS.ERRORid => AU.bogusEXN)
 
 end (* local *)
 end (* structure Lookup *)

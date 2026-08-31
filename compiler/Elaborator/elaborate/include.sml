@@ -136,7 +136,8 @@ and adjustSig(sign,[]) = sign
 	     typsharing=typsharing,
 	     strsharing=strsharing,
 	     stub = NONE}
-  | adjustSig _ = bug "adjustSig"
+  (* propagate an error signature rather than crashing; see elabsig.sml *)
+  | adjustSig(ERRORsig,_) = ERRORsig
 
 and adjustFsig(sign as FSIG{kind,paramsig,bodysig,paramvar,paramsym},tycmap) =
       let val paramsig' = adjustSig(paramsig,tycmap)
@@ -144,7 +145,7 @@ and adjustFsig(sign as FSIG{kind,paramsig,bodysig,paramvar,paramsym},tycmap) =
        in FSIG{kind=kind,paramsig=paramsig',bodysig=bodysig',
                paramvar=paramvar,paramsym=paramsym}
       end
-  | adjustFsig _ = bug "adjustFsig"
+  | adjustFsig(ERRORfsig,_) = ERRORfsig
 
 and adjustElems(elements,tycmap) = map (adjustElem tycmap) elements
 

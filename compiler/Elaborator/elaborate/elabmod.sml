@@ -1810,6 +1810,16 @@ fun elabDecl {ast, statenv, entEnv, context, level, tdepth,
                       epContext, path, region, compInfo)
      in {absyn=resDec, statenv=senv}
     end
+  (* EE.Unbound is an internal signal used while resolving entity paths.  Some
+   * ill-formed signatures (e.g. a `sharing type` between a type spec and a
+   * datatype spec) let it escape every intermediate handler -- all of which
+   * only log and re-raise -- and it then reached the user as an uncaught
+   * exception.  Report it as an ordinary elaboration error instead. *)
+    handle EE.Unbound =>
+      ((#error compInfo) region EM.COMPLAIN
+         "unresolved entity path in declaration (ill-formed signature or sharing specification)"
+         EM.nullErrorBody;
+       {absyn = A.SEQdec [], statenv = statenv})
 
 end (* local *)
 

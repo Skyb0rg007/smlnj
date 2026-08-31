@@ -229,7 +229,8 @@ fun pushDefs(elements,defs,error,mkStamp) =
     end
 
 (* does this belong in ModuleUtil or ElabUtil? DBM *)
-and addWhereDefs(sign,nil,nameOp,error,mkStamp) = bug "addWhereDefs"
+and addWhereDefs(ERRORsig,_,_,_,_) = ERRORsig
+  | addWhereDefs(sign,nil,nameOp,error,mkStamp) = bug "addWhereDefs"
   | addWhereDefs(sign as SIG {stamp,name,closed,fctflag,stub,
 			      elements, properties,
 			      typsharing,strsharing},
@@ -247,7 +248,7 @@ and addWhereDefs(sign,nil,nameOp,error,mkStamp) = bug "addWhereDefs"
 	typsharing=typsharing,
 	strsharing=strsharing,
 	stub = NONE}
-  | addWhereDefs _ = bug "addWhereDefs"
+
 
 fun localPath(p,elements) =
       (MU.getSpec(elements,SP.first p); true) handle MU.Unbound _ => false
