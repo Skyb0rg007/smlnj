@@ -70,5 +70,17 @@ structure Reconstruct : sig
       | expType(SEQexp nil) = bug "expType(SEQexp nil)"
       | expType(CONSTRAINTexp(e,ty)) = expType e
       | expType(MARKexp(e,_)) = expType e
+    (* Forms produced by the match compiler.  `expType` runs over the
+     * POST-elaboration Absyn, so it meets these whenever profiling is enabled;
+     * omitting them made `profMode := true` crash on ANY function definition.
+     * Each type follows the same rule the existing CASEexp/LETexp clauses use:
+     * a switch has the type of its branches, a let-binding the type of its
+     * body. *)
+      | expType(LETVexp(_,_,e)) = expType e
+      | expType(SWITCHexp(_, SRULE(_,_,e)::_, _)) = expType e
+      | expType(SWITCHexp(_, nil, SOME e)) = expType e
+      | expType(SWITCHexp(_, nil, NONE)) = bug "expType(SWITCHexp: no rules)"
+      | expType(VSWITCHexp(_, _, SRULE(_,_,e)::_, _)) = expType e
+      | expType(VSWITCHexp(_, _, nil, dflt)) = expType dflt
 
   end (* structure Reconstruct *)
