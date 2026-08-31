@@ -170,7 +170,11 @@ end (* local *)
 fun stripReal s = String.translate (fn #"_" => "" | c => str c) s
 
 fun mysynch (srcmap, initpos, pos, args) =
-    let fun cvt digits = getOpt(Int.fromString digits, 0)
+    let fun cvt digits = (getOpt(Int.fromString digits, 0))
+			  (* a #line directive may name a number too large for Int;
+			   * Int.fromString RAISES Overflow rather than returning NONE,
+			   * which crashed the lexer.  Treat it as 0. *)
+			  handle Overflow => 0
 	val resynch = SourceMap.resynch srcmap
      in case args
           of [col, line] =>
