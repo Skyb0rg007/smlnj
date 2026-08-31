@@ -33,7 +33,8 @@ struct
   (* formatting functions -- translate to "formatted" string *)
 
   fun trimmed (s, maxsz) =
-      if size s <= maxsz then s
+      if maxsz < 0 then s
+      else if size s <= maxsz then s
       else String.substring (s, 0, maxsz) ^ "#"
 
   fun quoteString s = concat ["\"", String.toString s, "\""]
