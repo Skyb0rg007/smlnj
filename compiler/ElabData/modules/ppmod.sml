@@ -443,7 +443,12 @@ and ppTycBind ppstrm (tyc,env) =
 				  (* the expected form in signatures;
 				     we won't check visibility [dbm] *)
 				| tycon => bug "ppTycBind..visibleDcons..find")
-			| NONE => find rest)
+			(* The name may resolve to something that is not a data
+			 * constructor at all -- e.g. a variable that shadows the
+			 * constructor.  In that case the constructor is not
+			 * visible under this name, so skip it; falling through
+			 * to a nonexhaustive match raised `Match` here. *)
+			| _ => find rest)
 		  | find [] = []
 	     in find dcons
 	    end
