@@ -374,6 +374,17 @@ functor RealToBitsFn (FP : IEEE_FLOAT_PARAMS) : REAL_TO_BITS =
                 val (frac_10, exp_10) = let
                       fun doDigit (d, (m, e)) = (IntInf.fromInt d + 10*m, e-1)
                       val (frac, exp) = List.foldl doDigit (0, exp) digits
+                    (* A decimal exponent far outside any representable range
+                     * must not reach `IntInf.toInt` (which raises Overflow --
+                     * this crashed the compiler on literals such as
+                     * 1.0e99999999999999999999) nor `raiseToPower`, which
+                     * would be astronomically expensive.  Clamping to a bound
+                     * well beyond the widest supported format preserves the
+                     * INF / ZERO classification computed below. *)
+                      val expLimit : IntInf.int = 100000
+                      val exp = if exp > expLimit then expLimit
+                                else if exp < ~expLimit then ~expLimit
+                                else exp
                       in
                         (frac, IntInf.toInt exp)
                       end
@@ -408,6 +419,17 @@ functor RealToBitsFn (FP : IEEE_FLOAT_PARAMS) : REAL_TO_BITS =
                 val (frac_10, exp_10) = let
                       fun doDigit (d, (m, e)) = (IntInf.fromInt d + 10*m, e-1)
                       val (frac, exp) = List.foldl doDigit (0, exp) digits
+                    (* A decimal exponent far outside any representable range
+                     * must not reach `IntInf.toInt` (which raises Overflow --
+                     * this crashed the compiler on literals such as
+                     * 1.0e99999999999999999999) nor `raiseToPower`, which
+                     * would be astronomically expensive.  Clamping to a bound
+                     * well beyond the widest supported format preserves the
+                     * INF / ZERO classification computed below. *)
+                      val expLimit : IntInf.int = 100000
+                      val exp = if exp > expLimit then expLimit
+                                else if exp < ~expLimit then ~expLimit
+                                else exp
                       in
                         (frac, IntInf.toInt exp)
                       end
