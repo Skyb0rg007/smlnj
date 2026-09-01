@@ -14,8 +14,11 @@
 
 /* _ml_Time_gettime : unit -> Int64.int * Int64.int * Int64.int * Int64.int
  *
- * Return the non-gc CPU time, non-gc system time, gc CPU time, and gc system
- * time used by this process so far.
+ * Return the total user CPU time, total system CPU time, GC user time, and GC
+ * system time used by this process so far.  The GC times are measured with the
+ * same clocks as the totals (see StopGCTimer in kernel/timers.c), so they are
+ * *included* in the first two components; it is InternalTimer.getTime that
+ * subtracts them out to get the non-GC times.
  */
 ml_val_t _ml_Time_gettime (ml_state_t *msp, ml_val_t arg)
 {
