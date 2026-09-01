@@ -16,7 +16,8 @@
  *	http://emr.cs.iit.edu/~reingold/calendars.shtml
  *
  * The SML/NJ runtime system interface uses unsigned 64-bit values (in nanoseconds
- * since the Epoch) to represent time values.
+ * since the host's epoch, which is not the same on all systems -- see
+ * `epochDayAndSecs` below) to represent time values.
  *)
 
 structure Date : DATE =
@@ -255,8 +256,33 @@ structure Date : DATE =
     fun yearLength year = if isLeapYear year then 366 else 365
     end
 
-  (* the absolute day number of the UNIX epoch (January 1, 1970) *)
-    val epochDay = toAbsoluteDay{year = 1970, month = 1, day = 1}
+  (* The runtime system measures a time value in nanoseconds from a *host-dependent*
+   * epoch: the UNIX epoch (January 1, 1970 UTC) on UNIX systems, but January 1,
+   * 1601 UTC on Windows, where the runtime's time values are FILETIMEs (see
+   * `runtime/c-libs/smlnj-date/win32-date.h` and `smlnj-time/timeofday.c`).  We
+   * therefore must not bake an epoch into this file; instead, we ask the runtime
+   * for the UTC date of `Time.zeroTime` and measure from that.  The answer is a
+   * constant for a given host, so it is computed at most once.
+   *)
+    local
+      val epoch : (int * int) option ref = ref NONE
+    in
+  (* the absolute day number of the runtime's epoch, paired with its second of the day *)
+    fun epochDayAndSecs () = (case !epoch
+	   of SOME info => info
+	    | NONE => let
+		val tm = gmTime Time.zeroTime
+		val info = (
+			toAbsoluteDay{
+			    year = tm_year tm, month = tm_mon tm + 1, day = tm_mday tm
+			  },
+			(tm_hour tm * 60 + tm_min tm) * 60 + tm_sec tm)
+		in
+		  epoch := SOME info;
+		  info
+		end
+	  (* end case *))
+    end
 (* DEBUG **
   (* some internal test cases *)
     local
@@ -377,12 +403,17 @@ structure Date : DATE =
 	       * as local time.
 	       *)
 		val DATE{year, month, day, hour, minute, second, ...} = date
+		val (epochDay, epochSecs) = epochDayAndSecs ()
 		val days = toAbsoluteDay{
 			year = year, month = monthToInt month + 1, day = day
 		      } - epochDay
-		val secs = ((days * 24 + hour) * 60 + minute) * 60 + second
+	      (* the day count can be large (Windows counts days from 1601), so the
+	       * conversion to seconds is done in LargeInt.
+	       *)
+		val secs = Int.toLarge days * secsPerDay
+		      + Int.toLarge ((hour * 60 + minute) * 60 + second - epochSecs)
 		in
-		  Time.+(Time.fromSeconds(Int.toLarge secs), off)
+		  Time.+(Time.fromSeconds secs, off)
 		end
 	  (* end case *))
 
