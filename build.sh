@@ -34,6 +34,8 @@ usage() {
   echo "    -install <dir>     specify installation directory (default $SMLNJ_ROOT)"
   echo "    -nolib             skip building libraries/tools"
   echo "    -runtime           build the runtime system only"
+  echo "    -seed <sml>        bootstrap from source using <sml> as the seed"
+  echo "                       compiler, instead of downloading boot files"
   echo "    -doc               generate documentation"
   echo "    -verbose           emit feedback messages"
   echo "    -clean             remove existing executables and libraries before building"
@@ -56,6 +58,7 @@ CLEAN_INSTALL=no
 INSTALL_DEBUG=no
 INSTALL_DEV=no
 ONLY_RUNTIME=no
+SEED=${SMLNJ_SEED:-""}
 MAKE_DOC=no
 SANITIZE_ADDRESS=no
 LLVMDIR_OPTION=""
@@ -79,6 +82,12 @@ while [ "$#" != "0" ] ; do
       BUILD_LLVM_FLAGS="-all-targets $BUILD_LLVM_FLAGS"
     ;;
     -runtime) ONLY_RUNTIME=yes ;;
+    -seed)
+      if [ "$#" -gt 0 ] ; then
+        SEED=$1; shift
+      else
+        usage
+      fi ;;
     -doc) MAKE_DOC=yes ;;
     -debug-llvm) BUILD_LLVM_FLAGS="-debug $BUILD_LLVM_FLAGS" ;;
     -sanitize-address)
@@ -95,6 +104,16 @@ while [ "$#" != "0" ] ; do
     *) usage ;;
   esac
 done
+
+# make a relative seed path absolute, since the bootstrap runs from the
+# "system" directory
+#
+if [ x"$SEED" != x ] ; then
+  case $SEED in
+    /*) ;;
+    *) SEED=$here/$SEED ;;
+  esac
+fi
 
 # feedback messages for verbose mode
 #
@@ -502,7 +521,7 @@ BOOT_FILES="sml.boot.$ARCH-unix"
 #
 # boot the base SML system
 #
-if [ -r "$HEAPDIR/sml.$HEAP_SUFFIX" ]; then
+if [ x"$SEED" = x ] && [ -r "$HEAPDIR/sml.$HEAP_SUFFIX" ]; then
   vsay "$cmd: Heap image $HEAPDIR/sml.$HEAP_SUFFIX already exists."
   fish "$LIBDIR"/smlnj/basis
   # ignore requested arc name since we have to live with what is there:
@@ -518,9 +537,17 @@ if [ -r "$HEAPDIR/sml.$HEAP_SUFFIX" ]; then
     complain "Unable to re-create heap image (sml.$HEAP_SUFFIX)."
   fi
 else
-  cd "$SMLNJ_ROOT" || exit 1
-  vsay "$cmd: unpack boot files ($BOOT_ARCHIVE)"
-  "$CONFIGDIR"/unpack "$SMLNJ_ROOT" "$BOOT_ARCHIVE"
+  if [ x"$SEED" = x ] ; then
+    cd "$SMLNJ_ROOT" || exit 1
+    vsay "$cmd: unpack boot files ($BOOT_ARCHIVE)"
+    "$CONFIGDIR"/unpack "$SMLNJ_ROOT" "$BOOT_ARCHIVE"
+  else
+    # bootstrap the boot files from source; see system/bootstrap
+    vsay "$cmd: bootstrap boot files using the seed $SEED"
+    cd "$SMLNJ_ROOT"/system || exit 1
+    ./bootstrap -seed "$SEED" || complain "source bootstrap failed"
+    cd "$SMLNJ_ROOT" || exit 1
+  fi
   vsay "$cmd: extract $SMLNJ_ROOT/$BOOT_FILES/smlnj/basis"
   fish "$SMLNJ_ROOT/$BOOT_FILES/smlnj/basis"
 
@@ -543,6 +570,7 @@ else
     if [ -r "sml.$HEAP_SUFFIX" ]; then
       mv "sml.$HEAP_SUFFIX" "$HEAPDIR"
       cd "$BINDIR" || exit 1
+      rm -f sml
       ln -s .run-sml sml
       #
       # Now move all stable libraries to $LIBDIR and generate
