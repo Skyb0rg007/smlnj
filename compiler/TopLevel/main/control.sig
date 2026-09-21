@@ -69,6 +69,12 @@ signature CG_CONTROL =
     val printCFG : bool ref
     val dumpCFG : bool ref
     val verifyLLVM : bool ref
+    (* when set, batch compilation records a CFG pickle in the binfile instead of
+     * native code; the code is then generated when the binfile is loaded.  This
+     * makes it possible to produce boot files for a runtime system whose code
+     * generator is not the one linked into the compiler that is running.
+     *)
+    val emitCFGPickle : bool ref
 
   end
 

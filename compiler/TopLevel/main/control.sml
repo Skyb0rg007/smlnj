@@ -96,6 +96,8 @@ structure Control_CG : CGCONTROL =
     val printCFG = new (b, "print-cfg", "whether to convert to CFG and print it", false)
     val dumpCFG = new (b, "dump-cfg", "whether to convert to CFG and pickle it", false)
     val verifyLLVM = new (b, "verify-llvm", "enable verification of generated LLVM code", false)
+    val emitCFGPickle = new (b, "emit-cfg-pickle",
+	  "record a CFG pickle instead of native code in binfiles", false)
     val debugSpill = new (b, "debug-cps-spill", "enable CPS spill debugging", false)
     val debugSpillInfo = new (b, "debug_cps_spill_info", "enable CPS spill info", false)
   end (* structure Control_CG *)
