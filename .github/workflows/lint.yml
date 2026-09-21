@@ -27,6 +27,6 @@ jobs:
           find -name '*.sh' -exec shellcheck -S warning {} +
           shellcheck -S warning \
             config/unpack \
-            system/stage1-make \
+            system/bootstrap system/stage1-make \
             package/macos/components/scripts/{copy-doc,preinstall,postinstall,postupgrade} \
             tools/ml-lpt/{ml-ulex/ml-ulex,ml-antlr/ml-antlr}

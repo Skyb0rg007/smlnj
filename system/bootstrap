@@ -1,0 +1,149 @@
+#!/bin/sh
+#
+# COPYRIGHT (c) 2026 The Fellowship of SML/NJ (https://smlnj.org)
+# All rights reserved.
+#
+# Bootstrap SML/NJ from source using a "seed" installation of an earlier
+# release, instead of using pre-built boot files.
+#
+# usage:
+#	bootstrap [ options ] -seed <seed>
+#
+# This script assumes that the new runtime system has already been built (see
+# "build.sh -runtime").  It then runs the following stages:
+#
+#   stage 1  the new compiler, compiled and run by the seed, emitting CFG
+#            pickles instead of native code (see "stage1-make")
+#   stage 2  the heap image that the new runtime system produces from those
+#            boot files by translating each CFG pickle as it boots
+#   stage 3  the ordinary self-hosted system: stage 2 runs the bootstrap
+#            compiler again, this time with its own native back end
+#
+# The result is a directory of native boot files in the root of the source
+# tree, exactly as "config/unpack" would have left it, so "build.sh" can
+# finish the installation from there.  The intermediate CFG-pickle boot files
+# are deleted: "Binfile.exec" cannot run them, so they must never be installed
+# in "lib".
+#
+# Normally this script is run for you by "build.sh -seed <seed>".
+#
+
+this=$0
+HERE=`pwd`
+cd .. || exit 1
+ROOT=`pwd`
+cd "$HERE" || exit 1
+
+usage() {
+  echo "usage: bootstrap [ options ] -seed <seed>"
+  echo "  options:"
+  echo "    -h              -- print this message"
+  echo "    -seed <seed>    -- the seed installation: either its root directory"
+  echo "                       or the path of its \"sml\" command (this option is"
+  echo "                       required unless SMLNJ_SEED is set)"
+  echo "    -keep           -- keep the stage-1 and stage-2 artifacts"
+  echo "    -C<ctl>=<v>     -- control argument passed to the seed's compiler"
+  echo "    -D<sym>=<v>     -- CM-define argument passed to the seed's compiler"
+  exit $1
+}
+
+die() {
+  echo "$this: $1"
+  exit 1
+}
+
+SEED=${SMLNJ_SEED:-""}
+ARGS=""
+KEEP=no
+
+while [ "$#" != 0 ] ; do
+  arg=$1; shift
+  case $arg in
+    -h) usage 0 ;;
+    -seed)
+      if [ "$#" = 0 ] ; then usage 1 ; fi
+      SEED=$1; shift
+      ;;
+    -keep) KEEP=yes ;;
+    -C*|-D*|-U*) ARGS="$ARGS $arg" ;;
+    *) echo "$this: unknown argument \"$arg\"" ; usage 1 ;;
+  esac
+done
+
+if [ x"$SEED" = x ] ; then
+  echo "$this: no seed specified"
+  usage 1
+fi
+
+# the new runtime system and the driver scripts must already be in place
+#
+for f in bin/.arch-n-opsys bin/.link-sml bin/.run-sml ; do
+  if [ ! -x "$ROOT/$f" ] ; then
+    die "$f is missing; run \"build.sh -runtime\" first"
+  fi
+done
+
+ARCH_N_OPSYS=`"$ROOT/bin/.arch-n-opsys"` \
+  || die "cannot determine architecture/operating system"
+eval $ARCH_N_OPSYS
+
+if [ ! -x "$ROOT/bin/.run/run.$ARCH-$OPSYS" ] ; then
+  die "the runtime system bin/.run/run.$ARCH-$OPSYS is missing"
+fi
+
+BOOT_FILES=sml.boot.$ARCH-unix
+S1_BOOT=s1.boot.$ARCH-unix
+
+#
+# stage 1: build the new compiler with the seed and run it to produce boot
+# files that hold CFG pickles
+#
+
+echo "$this: [stage 1] build the stage-1 compiler"
+./stage1-make -seed "$SEED" $ARGS || die "cannot build the stage-1 compiler"
+
+echo "$this: [stage 1] compile the system"
+rm -rf s1.bin.$ARCH-unix "$S1_BOOT"
+./stage1/stage1 s1 || die "the stage-1 compiler failed"
+
+#
+# stage 2: let the new runtime system translate those pickles
+#
+
+echo "$this: [stage 2] boot the stage-1 boot files"
+rm -rf stage2.$HEAP_SUFFIX stage2.lib
+./makeml -boot "$S1_BOOT" -o stage2 || die "cannot boot the stage-1 boot files"
+
+#
+# stage 3: re-run the bootstrap compiler natively, using stage 2
+#
+
+echo "$this: [stage 3] recompile the system with its own back end"
+rm -rf sml.bin.$ARCH-unix "$BOOT_FILES"
+CM_PATHCONFIG="$HERE/stage2.lib/pathconfig" CM_LOCAL_PATHCONFIG=/dev/null \
+  "$ROOT/bin/.run-sml" @SMLload="$HERE/stage2" @SMLquiet <<XXXX
+#set (CMB.symval "NO_PLUGINS") (SOME 1);
+if CMB.make() then () else OS.Process.exit OS.Process.failure;
+XXXX
+if [ "$?" != 0 ] ; then
+  die "the stage-2 compiler failed"
+fi
+
+if [ ! -d "$BOOT_FILES" ] ; then
+  die "the stage-2 compiler did not produce $BOOT_FILES"
+fi
+
+#
+# hand the native boot files to build.sh, which installs them the same way it
+# installs a downloaded set
+#
+
+rm -rf "${ROOT:?}/${BOOT_FILES:?}"
+mv "$BOOT_FILES" "$ROOT/$BOOT_FILES" || die "cannot move $BOOT_FILES to $ROOT"
+
+if [ x"$KEEP" = xno ] ; then
+  rm -rf s1.bin.$ARCH-unix "$S1_BOOT" stage2.$HEAP_SUFFIX stage2.lib \
+	 stage1/stage1 stage1/build
+fi
+
+echo "$this: native boot files are in $ROOT/$BOOT_FILES"
