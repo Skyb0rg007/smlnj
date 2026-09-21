@@ -122,6 +122,7 @@ dnl ***** Makefiles *****
   Makefile
   src/Makefile
   src/changelog/Makefile
+  src/dev-notes/Makefile
   src/extensions/Makefile
   src/install-notes/Makefile
   src/man/Makefile

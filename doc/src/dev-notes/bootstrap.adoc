@@ -1,0 +1,187 @@
+= Bootstrapping SML/NJ from source
+:revnumber: {version}
+:revdate: {release-date}
+:source-highlighter: pygments
+
+SML/NJ is written in SML, so building it requires an SML compiler.  For most of
+its history that compiler had to be *a binary of SML/NJ itself*: `build.sh`
+obtained a set of pre-built boot files (`boot.<arch>-unix.tgz`), booted them
+with the freshly built runtime system, and dumped a heap image.
+
+This note describes the alternative: building the system from source with a
+*seed* installation of an earlier SML/NJ release.  No boot files, and no
+published intermediate checkpoint, are required.
+
+== Why the cycle exists
+
+The bootstrap compiler `CMB` (`cm/bootstrap/btcompile.sml`) compiles the new
+sources using the *running* compiler's front end, back end, and primitive
+environment.  Two couplings matter:
+
+* `cm/bootstrap/build-initdg.sml` injects `PrimEnv.primEnv` -- the running
+  binary's primitive static environment -- into the elaboration of
+  `system/smlnj/init/init.cmi`.  The new Basis library is therefore elaborated
+  against the running compiler's primops, types, and `InLine` slot numbering.
+
+* The code generator is a C++ library inside the runtime system
+  (`runtime/c-libs/codegen`), reached through `CodeObj.generate`.  Native code
+  in the new boot files is produced by the *running* system's back end.
+
+Because of this, a change to a primop, an object tag, the literal bytecode, or
+the binfile format could not be made in a single commit: it had to be split in
+two, with a published boot-file checkpoint in between so that the next commit
+had something to bootstrap from.  The `rm-raw64-tag` and
+`rm-runtime-raw64-tag` tags, and the procedure recorded in `NOTES.md`, are
+examples of that dance.  **That procedure is obsolete; use the staged bootstrap
+described here instead.**
+
+== The staged bootstrap
+
+The escape hatch is `CodeObj.CFGPickle`.  A binfile may carry a `CFGP` section
+holding a pickle of the CFG intermediate representation instead of a `CODE`
+section holding native code, and `runtime/kernel/boot.c` translates such
+pickles with its own LLVM back end while booting.  A compiler that only emits
+CFG pickles therefore needs no working native back end at all, which removes
+the one host/target coupling that cannot be expressed in SML.
+
+[source,subs="none"]
+----
+seed sml (release N-1 or N-2)  +  new source tree
+  |
+  +- stage 0  build the new C runtime system and LLVM code generator
+  |             build.sh -runtime
+  |
+  +- stage 1  seed ml-build -> a single-executable "stage-1" compiler
+  |             system/stage1-make -seed <seed>
+  |           the new compiler and CM, compiled by the seed, running on the
+  |           seed's Basis and runtime system, with the native back end
+  |           disabled
+  |
+  |           stage 1 then runs CMB over the new sources
+  |             system/stage1/stage1 s1
+  |           producing boot files whose binfiles hold CFG pickles, elaborated
+  |           against the NEW PrimEnv, target spec, pickler, and binfile format
+  |
+  +- stage 2  the new runtime system boots those files, translating each CFG
+  |           pickle as it goes
+  |             system/makeml -boot s1.boot.<arch>-unix -o stage2
+  |
+  +- stage 3  stage 2 runs CMB again, now with its own native back end
+                CMB.make(); system/makeml
+----
+
+Stage 3 is the ordinary self-hosted system.  `system/bootstrap` runs stages 1
+to 3 and leaves the stage-3 boot files in the root of the source tree, where
+`build.sh` installs them exactly as it would install a downloaded set.
+
+The key property is that stage 1 *is* the new compiler.  `PrimEnv.primEnv`,
+`Target`, `ObjectDesc`, the `PickMod` tags, the literal bytecode version, and
+the binfile format are all the new ones, in a single pass.  The seed only has
+to be able to compile and run the new compiler's SML source; it never has to
+understand its output.
+
+=== Usage
+
+[source,shell]
+----
+# bootstrap from a seed installed in /usr/local/smlnj
+./build.sh -seed /usr/local/smlnj
+
+# the seed may also be named by its "sml" command
+./build.sh -seed /usr/local/smlnj/bin/sml
+
+# or through the environment
+SMLNJ_SEED=/usr/local/smlnj ./build.sh
+----
+
+Without `-seed`, `build.sh` behaves as it always has and downloads the boot
+files; the source bootstrap is opt-in.
+
+The individual stages can also be run by hand, which is what you want when
+debugging a bootstrap failure:
+
+[source,shell]
+----
+./build.sh -runtime                            # stage 0
+cd system
+./stage1-make -seed /usr/local/smlnj           # -> system/stage1/stage1
+./stage1/stage1 s1                             # -> s1.{bin,boot}.<arch>-unix
+./makeml -boot s1.boot.<arch>-unix -o stage2   # -> system/stage2.<arch>-<os>
+./testml -load stage2                          # a REPL on the stage-2 heap
+----
+
+`system/bootstrap -keep` leaves these intermediates in place.
+
+== CFG pickles are bootstrap intermediates only
+
+`Binfile.exec` requires native code, so a stable library containing a `CFGP`
+section can be booted but not autoloaded:
+
+----
+binfile format error: Binfile.exec: "guid-..." holds a CFG pickle instead of
+native code
+----
+
+Stage 2 is therefore usable as a compiler -- everything it needs was translated
+while it booted -- but a library that it has to autoload afterwards will fail.
+This is why stage 3 exists, and why the stage-1 and stage-2 artifacts must
+never be installed into `lib`.  `system/bootstrap` deletes them.
+
+The `cg.emit-cfg-pickle` control selects this mode for batch compilation:
+
+[source,shell]
+----
+cd system && ./cmb-make -Ccg.emit-cfg-pickle=true ../bin/sml
+----
+
+The interactive system always compiles to native code
+(`compiler/TopLevel/interact/eval-loop-fn.sml`), since it has to execute what
+it compiles.
+
+== The seed window
+
+**Supported seeds are the previous one or two releases.**  The seed must be new
+enough that
+
+* its runtime system has the LLVM code generator and the `CodeGen` C library
+  (so `heap2exec` can build the stage-1 executable), and
+* its Basis library, init library, smlnj-lib, and ml-yacc-lib provide
+  everything that the new compiler and CM sources use.
+
+The second condition is a real constraint on the compiler sources: **the
+compiler and CM may only use the Basis and smlnj-lib surface that is present in
+the oldest supported seed.**  Nothing in the compiler enforces this; the
+`bootstrap` job in `.github/workflows/` does, by bootstrapping from release
+N-1 weekly (and on demand).  A run builds LLVM twice, which is why it is not a
+per-push job.  When it fails, either add a shim or bump the supported seed
+window -- and if you bump it, say so in the release notes.
+
+=== How the host build splits its anchors
+
+`system/stage1-make` has to compile the new compiler sources against the
+*seed's* Basis, because the stage-1 program runs on the seed's runtime system.
+It builds an anchor map in which
+
+* `$SMLNJ-BASIS`, `$smlnj/init`, `$smlnj/basis`, `$smlnj/smlnj-lib` and
+  `$smlnj/ml-yacc` resolve to the seed's `lib` directory, and
+* the compiler, CM, the bootstrap compiler, the pickler, and the ASDL library
+  that writes CFG pickles resolve to the new source tree.
+
+`$smlnj/init/init.cmi` in particular *must* name the seed's init library: CM
+looks its own init group up under that name (`BtNames.initgspec`) and loads it
+from the stable file beside it, and the new source tree has no such stable
+file.  Since the `smlnj` anchor has to be split between the seed and the new
+tree, `stage1-make` generates a directory of symbolic links -- an anchor farm
+-- in `system/stage1/build` and points the `smlnj` anchor at that.
+
+== What is still not possible
+
+Stage 1 is built with `ml-build` and uses CM, `Unsafe`, and
+`SMLofNJ.exportFn`, so it cannot be hosted by MLton or Poly/ML.  Splitting the
+host and target environments, which is what this machinery does, is a
+prerequisite for that, not a delivery of it.
+
+Neither is a bit-identical fixpoint an available check.  `system/iter-make`
+records that the LLVM back end does not reliably reach one, and source GUIDs
+are derived from timestamps (`cm/smlfile/smlinfo.sml`).  The criterion is that
+the system rebuilds itself and passes its tests.

@@ -32,6 +32,7 @@ include @MK_DIR@/doc-rules.gmk
 DOC_SUBDIRS =		changelog \
 			release-notes \
 			install-notes \
+			dev-notes \
 			extensions \
 			man \
 			manuals
