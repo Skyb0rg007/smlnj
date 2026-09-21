@@ -739,8 +739,14 @@ PVT void LoadBinFile (ml_state_t *msp, char *fname)
                 Say ("  [generate native code]\n");
             }
 
-            /* generate code; we get a (WordVector.vector * int) value as a result */
+            /* generate code; we get a (WordVector.vector * int) value as a result.
+             * Note that llvm_codegen allocates in the ML heap and may invoke the
+             * garbage collector, so we have to protect the import vector and the
+             * remaining boot-file list across the call.
+             */
+            SaveCState (msp, &BinFileList, &val, NIL(ml_val_t *));
             ml_val_t pair = llvm_codegen (msp, objname, pkl, hdr.codeSect.size);
+            RestoreCState (msp, &BinFileList, &val, NIL(ml_val_t *));
             ml_val_t code = GET_SEQ_DATA(REC_SEL(pair, 0));
             thisEntryPoint = REC_SELINT(pair, 1);
             thisSzB = GET_SEQ_LEN(REC_SEL(pair, 0));
