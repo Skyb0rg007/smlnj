@@ -332,7 +332,8 @@ in
                                     } = C.compile {
                                       source = source, ast = ast, statenv = stat,
                                       compInfo = cinfo, checkErr = check,
-                                      guid = guid, native = true
+                                      guid = guid,
+                                      native = not (!Control.CG.emitCFGPickle)
                                     }
 				val bfc = BF.create {
                                         version = version,
