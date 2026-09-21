@@ -218,6 +218,25 @@ CM_PATHCONFIG=$LIBDIR/pathconfig
 VERSION=$(cat "$CONFIGDIR/version")
 vsay "$cmd: Installing version $VERSION."
 
+# "system/smlnj/internal/version.sml" is generated from "version.template", but
+# it is also checked in, and the tool that generates it is bypassed when the
+# system is compiled with "-DNO_PLUGINS" (which is how the bootstrap compiles
+# it).  A stale copy therefore builds a system that reports the wrong version,
+# so check the two against each other.  A version we cannot parse is ignored.
+#
+VERSION_SML="$SMLNJ_ROOT/system/smlnj/internal/version.sml"
+if [ -r "$VERSION_SML" ] ; then
+  SML_VERSION=$(sed -n -e 's/^[ 	]*version_id = \[\(.*\)\],.*$/\1/p' "$VERSION_SML" \
+    | tr -d ' 	' | tr ',' '.')
+  SML_SUFFIX=$(sed -n -e 's/^[ 	]*suffix = "\(.*\)",.*$/\1/p' "$VERSION_SML")
+  if [ x"$SML_SUFFIX" != x ] ; then
+    SML_VERSION="$SML_VERSION-$SML_SUFFIX"
+  fi
+  if [ x"$SML_VERSION" != x ] && [ x"$SML_VERSION" != x"$VERSION" ] ; then
+    complain "config/version says $VERSION, but $VERSION_SML says $SML_VERSION"
+  fi
+fi
+
 #
 # the URL for the (usually remote) source archive
 #
