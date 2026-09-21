@@ -216,6 +216,30 @@ to make sure everything works, and finally
 
 to replace your existing compiler with the one you just built and tested.
 
+* Bootstrapping from source
+---------------------------
+
+Everything above assumes you already have a working SML/NJ of the same
+version as the sources: CMB.make uses the running compiler's front end,
+back end, and primitive environment.  To build the system from source
+using a *previous* release as the seed, use the "stage1-make" and
+"bootstrap" scripts here in this directory (or "build.sh -seed" in the
+root of the tree, which runs them for you):
+
+	./stage1-make -seed <seed>	# build the stage-1 compiler
+	./stage1/stage1 s1		# compile the system with it
+	./makeml -boot s1.boot.<arch>-unix -o stage2
+
+The stage-1 compiler is the new compiler, compiled and run by the seed.
+It cannot generate native code -- the code generator lives in the seed's
+runtime system -- so it records a CFG pickle in each binfile and leaves
+the code generation to the new runtime system, which does it while
+booting.  "bootstrap" runs the whole sequence, including the native
+recompilation that has to follow.
+
+See doc/src/dev-notes/bootstrap.adoc for the details, including the
+rules about which seed versions are supported.
+
 * Cross-compiling
 -----------------
 
