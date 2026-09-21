@@ -98,6 +98,9 @@ autom4te.cache
 # project-specific files
 sml.boot.*
 sml.bin.*
+# the stage-1 compiler and its work area (see system/stage1-make)
+system/stage1/build/
+system/stage1/stage1
 /bin/
 /lib/
 /include/
