@@ -101,6 +101,9 @@ sml.bin.*
 # the stage-1 compiler and its work area (see system/stage1-make)
 system/stage1/build/
 system/stage1/stage1
+# boot files produced by the stage-1 compiler (see system/bootstrap)
+system/s1.boot.*
+system/s1.bin.*
 /bin/
 /lib/
 /include/
