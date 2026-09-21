@@ -230,12 +230,12 @@ structure Binfile :> BINFILE =
           val cmData = readSection (BFIO.SectId.pids, getPidsSection)
           val guid = readSection (BFIO.SectId.guid, getGuidSection)
           val literals = readSection (BFIO.SectId.literals, getLiteralsSection)
-(* FIXME: check if CODE or CFGP section is present *)
+          (* exactly one of the 'CODE' and 'CFGP' sections must be present *)
           val code = if BFIO.In.hasSection(bf, BFIO.SectId.code)
                   then readSection (BFIO.SectId.code, getCodeSection)
                 else if BFIO.In.hasSection(bf, BFIO.SectId.cfkPickle)
                   then readSection (BFIO.SectId.cfkPickle, getCFGSection)
-                  else CodeObj.NoCode
+                  else BFIO.error "missing 'CODE' or 'CFGP' section"
           val senv = readSection (BFIO.SectId.staticEnv, getStaticEnvSection)
 	  in {
 	    contents = create {
@@ -468,7 +468,7 @@ structure Binfile :> BINFILE =
             addPidsSection (bf, cmData);
             addGuidSection (bf, guid);
             case code
-             of CodeObj.NoCode => ()
+             of CodeObj.NoCode => BFIO.error "no code to write"
               | CodeObj.CFGPickle pkl => (
                   addLiteralSection (bf, lits);
                   addCFGPickleSection (bf, pkl))
@@ -482,7 +482,7 @@ structure Binfile :> BINFILE =
           end
 
     fun exec (bf, dynEnv, exnWrapper) = let
-          val BF{ imports, exportPid, exec, lits, code, ... } = bf
+          val BF{ imports, exportPid, exec, lits, code, guid, ... } = bf
 	  val executable = (case !exec
 		 of SOME e => e
 		  | NONE => (case code
@@ -493,7 +493,13 @@ structure Binfile :> BINFILE =
                             in
                               exec := SOME e; e
                             end
-                        | _ => BFIO.error "Binfile.exec: expected native code"
+                        | CodeObj.CFGPickle _ => BFIO.error(concat[
+                              "Binfile.exec: \"", guid,
+                              "\" holds a CFG pickle instead of native code"
+                            ])
+                        | CodeObj.NoCode => BFIO.error(concat[
+                              "Binfile.exec: \"", guid, "\" has no code"
+                            ])
                       (* end case *))
 		(* end case *))
 	  in
