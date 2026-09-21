@@ -46,8 +46,11 @@ $(RUNTIME):
 # libs into the object file and deferring the linking of libm and libc to when
 # we have the heap image of the actual program.
 #                                                                         -BZ
+# LLVM_SYSTEM_LIBS must be overridden for the same reason: "llvm-config
+# --system-libs" reports -lm and friends, and "heap2exec" already passes them
+# to the final link.
 $(STANDALONE):
-	($(MAKE) RUNTIME="$(STANDALONE)" MAIN="standalone" VERSION="$(VERSION)" AS="$(AS)" CC="$(CC)" CFLAGS="$(CFLAGS)" CXX="$(CXX)" CXX_FLAGS="$(CXX_FLAGS)" CPP="$(CPP)" TARGET=$(TARGET) DEFS="$(DEFS)" XOBJS="$(XOBJS)" XLIBS="$(XLIBS)" LD_LIBS="$(LD_LIBS)" LDFLAGS="-r" SYSTEM_LIBS="" $(STANDALONE))
+	($(MAKE) RUNTIME="$(STANDALONE)" MAIN="standalone" VERSION="$(VERSION)" AS="$(AS)" CC="$(CC)" CFLAGS="$(CFLAGS)" CXX="$(CXX)" CXX_FLAGS="$(CXX_FLAGS)" CPP="$(CPP)" TARGET=$(TARGET) DEFS="$(DEFS)" XOBJS="$(XOBJS)" XLIBS="$(XLIBS)" LD_LIBS="$(LD_LIBS)" LDFLAGS="-r" SYSTEM_LIBS="" LLVM_SYSTEM_LIBS="" $(STANDALONE))
 
 $(STANDALONE_A):
 	($(MAKE) RUNTIME_A="$(STANDALONE_A)" MAIN="standalone" VERSION="$(VERSION)" AS="$(AS)" CC="$(CC)" CFLAGS="$(CFLAGS)" CXX="$(CXX)" CXX_FLAGS="$(CXX_FLAGS)" CPP="$(CPP)" TARGET=$(TARGET) DEFS="$(DEFS)" XOBJS="$(XOBJS)" XLIBS="$(XLIBS)" LD_LIBS="$(LD_LIBS)" $(STANDALONE_A))
