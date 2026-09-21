@@ -1,0 +1,87 @@
+# Bootstrap the system from source using an earlier release as the seed.
+#
+# This is what keeps the seed window honest: the compiler and CM sources may
+# only use the Basis and smlnj-lib surface that the seed already provides, and
+# nothing in the compiler enforces that.  See doc/src/dev-notes/bootstrap.adoc.
+#
+# A run builds LLVM twice -- once for the seed and once for the new system --
+# so this is deliberately not a per-push job.
+#
+name: bootstrap
+
+on:
+  workflow_dispatch:
+    inputs:
+      seed-version:
+        description: the SML/NJ release to use as the seed
+        required: false
+        default: "2026.2"
+  schedule:
+    - cron: "17 4 * * 1"
+
+permissions: {}
+
+concurrency:
+  group: bootstrap-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # the supported seed window is the previous one or two releases; when this
+  # has to be bumped, say so in the release notes
+  SEED_VERSION: ${{ inputs.seed-version || '2026.2' }}
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+          path: smlnj
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+
+      - name: Build the seed
+        run: |
+          mkdir -p seed
+          cd seed
+          url=https://smlnj.org/dist/working/$SEED_VERSION
+          curl -sSfLO "$url/smlnj-amd64-unix-$SEED_VERSION.tgz"
+          tar xzf "smlnj-amd64-unix-$SEED_VERSION.tgz"
+          rm -f "smlnj-amd64-unix-$SEED_VERSION.tgz"
+          # the tarball may or may not have a top-level directory
+          top=$(dirname "$(find . -maxdepth 2 -name build.sh | head -1)")
+          test -n "$top" || { echo "no build.sh in the seed tarball"; exit 1; }
+          echo "SEED_HOME=$(cd "$top" && pwd)" >>"$GITHUB_ENV"
+          # the seed is built the old way, from its own published boot files
+          (cd "$top" && ./build.sh)
+
+      - name: Bootstrap from source
+        run: |
+          cd smlnj
+          ./build.sh -verbose -seed "$SEED_HOME"
+
+      - name: Check the version of the bootstrapped system
+        run: |
+          cd smlnj
+          test "$(./bin/sml @SMLversion | sed -e 's/^.* //')" = "$(cat config/version)"
+
+      - name: Check that the bootstrapped system can rebuild itself
+        run: |
+          cd smlnj/system
+          ./cmb-make ../bin/sml
+          ./makeml
+          ./testml <<'EOF'
+          val fact = fn n => let fun f (0 : IntInf.int, a) = a | f (n, a) = f (n-1, a*n) in f (n, 1) end;
+          val ok = (size (IntInf.toString (fact 100)) = 158)
+                andalso ((1 div 0; false) handle Div => true)
+                andalso (Array.foldl op+ 0 (Array.tabulate (1000, fn i => i)) = 499500);
+          val _ = if ok
+                then print "bootstrap ok\n"
+                else (print "bootstrap FAILED\n"; OS.Process.exit OS.Process.failure);
+          EOF
