@@ -1,0 +1,37 @@
+(* stage1.cm
+ *
+ * COPYRIGHT (c) 2026 The Fellowship of SML/NJ (https://smlnj.org)
+ * All rights reserved.
+ *
+ * The stage-1 bootstrap compiler, packaged as a standalone program.  This
+ * library is compiled by a seed version of SML/NJ; see `system/stage1-make`.
+ *)
+
+Library
+
+  structure Stage1
+
+is
+
+  $smlnj/basis/basis.cm
+  $smlnj/smlnj-lib/smlnj-lib.cm
+  $smlnj/smlnj-lib/controls-lib.cm
+
+  (* structure BasicControl *)
+  $smlnj/viscomp/basics.cm
+
+  (* functor BootstrapCompileFn *)
+  $smlnj/internal/cm-lib.cm
+
+(* the visible compiler for the target, which supplies the back end *)
+# if defined(ARCH_AMD64)
+    $smlnj/compiler/amd64.cm
+    stage1-amd64-unix.sml
+# elif defined(ARCH_ARM64)
+    $smlnj/compiler/arm64.cm
+    stage1-arm64-unix.sml
+# else
+#   error Strange architecture and/or OS!
+# endif
+
+  stage1.sml

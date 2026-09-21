@@ -1,0 +1,188 @@
+#!/bin/sh
+#
+# COPYRIGHT (c) 2026 The Fellowship of SML/NJ (https://smlnj.org)
+# All rights reserved.
+#
+# Build the stage-1 bootstrap compiler using a "seed" installation of SML/NJ.
+#
+# usage:
+#	stage1-make [ options ] -seed <seed>
+#
+# The stage-1 compiler is the new compiler (this source tree) compiled and run
+# by the seed.  It cannot generate native code, because the code generator lives
+# in the seed's runtime system, so it emits CFG pickles instead; the new runtime
+# system translates those while booting the boot files that stage 1 produces.
+#
+# The seed therefore only has to be able to *compile and run* the new compiler's
+# SML source.  To arrange that, this script builds an anchor map in which
+#
+#   * the Basis library, the init library, smlnj-lib and ml-yacc-lib resolve to
+#     the seed's installation, because the stage-1 program runs on the seed's
+#     runtime system, and
+#   * everything else -- the compiler, CM, the bootstrap compiler, the pickler,
+#     and the ASDL library that writes CFG pickles -- resolves to this source
+#     tree.
+#
+# Since the "smlnj" anchor has to be split between the two, the script also
+# builds a directory of symbolic links (the "anchor farm") to stand in for
+# "../system/smlnj".
+#
+
+this=$0
+HERE=`pwd`
+cd .. || exit 1
+ROOT=`pwd`
+cd "$HERE" || exit 1
+
+usage() {
+  echo "usage: stage1-make [ options ] -seed <seed>"
+  echo "  options:"
+  echo "    -h              -- print this message"
+  echo "    -seed <seed>    -- the seed installation: either its root directory"
+  echo "                       or the path of its \"sml\" command (this option is"
+  echo "                       required unless SMLNJ_SEED is set)"
+  echo "    -heap           -- stop at the heap image; do not build an executable"
+  echo "    -C<ctl>=<v>     -- control argument passed to the seed's compiler"
+  echo "    -D<sym>=<v>     -- CM-define argument passed to the seed's compiler"
+  exit $1
+}
+
+die() {
+  echo "$this: $1"
+  exit 1
+}
+
+SEED=${SMLNJ_SEED:-""}
+ARGS=""
+BUILD_EXEC="-standalone"
+
+while [ "$#" != 0 ] ; do
+  arg=$1; shift
+  case $arg in
+    -h) usage 0 ;;
+    -seed)
+      if [ "$#" = 0 ] ; then usage 1 ; fi
+      SEED=$1; shift
+      ;;
+    -heap) BUILD_EXEC="" ;;
+    -C*|-D*|-U*) ARGS="$ARGS $arg" ;;
+    *) echo "$this: unknown argument \"$arg\"" ; usage 1 ;;
+  esac
+done
+
+if [ x"$SEED" = x ] ; then
+  echo "$this: no seed specified"
+  usage 1
+fi
+
+# the seed may be named either by its root directory or by its "sml" command
+#
+if [ -d "$SEED" ] ; then
+  SEED_HOME=$SEED
+elif [ -x "$SEED" ] ; then
+  SEED_HOME=`dirname "$SEED"`/..
+else
+  die "seed \"$SEED\" is neither a directory nor an executable"
+fi
+SEED_HOME=`cd "$SEED_HOME" 2>/dev/null && pwd` || die "bad seed \"$SEED\""
+
+for f in bin/sml bin/ml-build bin/.link-sml lib/pathconfig ; do
+  if [ ! -e "$SEED_HOME/$f" ] ; then
+    die "seed installation at $SEED_HOME is missing $f"
+  fi
+done
+
+# the architecture and operating system of the seed, which is also the host of
+# the stage-1 program
+#
+SUFFIX=`"$SEED_HOME/bin/sml" @SMLsuffix` || die "cannot run $SEED_HOME/bin/sml"
+ARCHOS=`echo $SUFFIX | sed -e 's/-linux$/-unix/' -e 's/-darwin$/-unix/' \
+			  -e 's/-freebsd$/-unix/' -e 's/-netbsd$/-unix/' \
+			  -e 's/-openbsd$/-unix/'`
+
+# the seed's init library must be there in stable form, since we cannot rebuild
+# it with the seed's own primitive environment
+#
+INIT_LIB="$SEED_HOME/lib/smlnj/init/.cm/$ARCHOS/init.cmi"
+if [ ! -f "$INIT_LIB" ] ; then
+  die "seed installation at $SEED_HOME has no init library for $ARCHOS"
+fi
+
+echo "$this: seed is $SEED_HOME (`"$SEED_HOME/bin/sml" @SMLversion`)"
+
+#
+# build the host anchor map
+#
+
+BUILD_DIR="$HERE/stage1/build"
+FARM="$BUILD_DIR/smlnj"
+PCFILE="$BUILD_DIR/pathconfig"
+
+rm -rf "$BUILD_DIR"
+mkdir -p "$FARM"
+
+# everything under "$smlnj" comes from this source tree ...
+for f in "$ROOT"/system/smlnj/* ; do
+  ln -s "$f" "$FARM/`basename \"$f\"`"
+done
+
+# ... except for the libraries that the stage-1 program itself runs on.  In
+# particular "$smlnj/init/init.cmi" must name the seed's init library: CM looks
+# the init group up under that name (see BtNames.initgspec) and loads it from
+# the stable file next to it.
+#
+for d in init basis smlnj-lib ml-yacc ; do
+  if [ ! -d "$SEED_HOME/lib/smlnj/$d" ] ; then
+    die "seed installation at $SEED_HOME has no lib/smlnj/$d"
+  fi
+  rm -f "$FARM/$d"
+  ln -s "$SEED_HOME/lib/smlnj/$d" "$FARM/$d"
+done
+
+# start from the seed's anchor map, making its paths absolute (the entries are
+# relative to the seed's lib directory), then override the anchors that have to
+# name this source tree
+#
+{
+  awk -v libdir="$SEED_HOME/lib" 'NF == 2 {
+	if ($2 ~ /^\//) print $1, $2 ; else print $1, libdir "/" $2
+      }' "$SEED_HOME/lib/pathconfig"
+  echo "smlnj $FARM"
+  echo "root.cm $ROOT/system"
+  echo "cm $ROOT/cm"
+  echo "compiler $ROOT/compiler"
+  echo "pickle-lib.cm $ROOT/compiler/Library/pickle"
+  echo "pgraph.cm $ROOT/libraries/pgraph"
+  echo "smlnj-tdp $ROOT/libraries/trace-debug-profile"
+  # the ASDL library writes the CFG pickles that the new runtime system reads,
+  # so it must be the new one
+  echo "SMLNJ-ASDL-LIB $ROOT/tools/asdl/src/lib/sml"
+} | awk 'NF == 2 { mapping[$1] = $2 }
+	 END { for (i in mapping) print i, mapping[i] }' | sort >"$PCFILE"
+
+#
+# build the stage-1 program
+#
+
+cd "$HERE/stage1" || exit 1
+
+SMLNJ_HOME="$SEED_HOME"
+CM_PATHCONFIG="$PCFILE"
+# ignore any per-user anchor map
+CM_LOCAL_PATHCONFIG=/dev/null
+PATH="$SEED_HOME/bin:$PATH"
+export SMLNJ_HOME CM_PATHCONFIG CM_LOCAL_PATHCONFIG PATH
+
+echo "$this: ml-build -DNO_PLUGINS$ARGS $BUILD_EXEC stage1.cm Stage1.main stage1"
+if "$SEED_HOME/bin/ml-build" -DNO_PLUGINS $ARGS $BUILD_EXEC \
+      stage1.cm Stage1.main stage1
+then
+  if [ x"$BUILD_EXEC" = x ] ; then
+    echo "$this: stage-1 heap image is system/stage1/stage1.$SUFFIX"
+  else
+    rm -f "stage1.$SUFFIX"
+    echo "$this: stage-1 compiler is system/stage1/stage1"
+  fi
+else
+  die "building the stage-1 compiler failed"
+fi
