@@ -462,7 +462,7 @@ done
 
 vsay $cmd: runtime system built
 if [ x"$ONLY_RUNTIME" = xyes ] ; then
-  exit 1
+  exit 0
 fi
 
 #
