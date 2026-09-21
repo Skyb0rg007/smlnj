@@ -39,12 +39,26 @@ structure CodeObj :> CODE_OBJ =
 
     local
       structure CI = Unsafe.CInterface
+      (* The LLVM code generator is part of the runtime system, so we delay
+       * looking up its entry points until they are first needed.  That way a
+       * compiler that only emits CFG pickles (see Control.CG.emitCFGPickle) can
+       * run on a runtime system that was built without the code generator.
+       *)
+      fun delay bind = let
+	    val cache = ref NONE
+	    in
+	      fn arg => (case !cache
+		 of SOME f => f arg
+		  | NONE => let val f = bind() in cache := SOME f; f arg end
+		(* end case *))
+	    end
     in
     (* set the target architecture for the code generator *)
-    val setTarget : string option -> bool = CI.c_function "CodeGen" "setTarget"
+    val setTarget : string option -> bool =
+	  delay (fn () => CI.c_function "CodeGen" "setTarget")
     (* interface to the LLVM code generator *)
-    val codegen : string * W8V.vector * bool -> W8V.vector * int
-          = CI.c_function "CodeGen" "generate"
+    val codegen : string * W8V.vector * bool -> W8V.vector * int =
+	  delay (fn () => CI.c_function "CodeGen" "generate")
     (* build the in-heap literal data from a literal-byte-code program *)
     val mkLiterals : W8V.vector -> object = CI.c_function "SMLNJ-RunT" "mkLiterals"
     (* allocate and initialize a code object in the heap *)
