@@ -4,8 +4,9 @@
 # All rights reserved.
 #
 
-smlnj_add_c_library(smlnj-clib-posix-os
+add_library(smlnj-clib-posix-os STATIC
   posix-os-lib.c
   poll.c
   tmpname.c
 )
+target_link_libraries(smlnj-clib-posix-os PRIVATE smlnj-clib-common)

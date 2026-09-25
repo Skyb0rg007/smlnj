@@ -4,7 +4,7 @@
 # All rights reserved.
 #
 
-smlnj_add_c_library(smlnj-clib-smlnj-date
+add_library(smlnj-clib-smlnj-date STATIC
   smlnj-date-lib.c
   gmtime.c
   localoffset.c
@@ -13,3 +13,4 @@ smlnj_add_c_library(smlnj-clib-smlnj-date
   strftime.c
   unix-date.c
 )
+target_link_libraries(smlnj-clib-smlnj-date PRIVATE smlnj-clib-common)

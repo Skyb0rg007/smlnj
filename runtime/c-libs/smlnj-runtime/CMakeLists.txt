@@ -4,7 +4,7 @@
 # All rights reserved.
 #
 
-smlnj_add_c_library(smlnj-clib-smlnj-runtime
+add_library(smlnj-clib-smlnj-runtime STATIC
   smlnj-runt-lib.c
   argv.c
   raw-argv.c
@@ -27,6 +27,7 @@ smlnj_add_c_library(smlnj-clib-smlnj-runtime
   sysinfo.c
   setitimer.c
 )
+target_link_libraries(smlnj-clib-smlnj-runtime PRIVATE smlnj-clib-common)
 
 # these functions access the internals of the garbage collector
 target_include_directories(smlnj-clib-smlnj-runtime PRIVATE ${SMLNJ_RUNTIME_SOURCE_DIR}/gc)

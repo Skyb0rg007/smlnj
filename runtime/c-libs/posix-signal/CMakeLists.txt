@@ -4,7 +4,8 @@
 # All rights reserved.
 #
 
-smlnj_add_c_library(smlnj-clib-posix-signal
+add_library(smlnj-clib-posix-signal STATIC
   posix-signal-lib.c
   osval.c
 )
+target_link_libraries(smlnj-clib-posix-signal PRIVATE smlnj-clib-common)

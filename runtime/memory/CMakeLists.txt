@@ -8,6 +8,5 @@
 #
 
 add_library(smlnj-mem STATIC mem-mmap.c)
-smlnj_runtime_c_standard(smlnj-mem)
 target_include_directories(smlnj-mem PRIVATE ${SMLNJ_RUNTIME_SOURCE_DIR}/gc)
 target_link_libraries(smlnj-mem PRIVATE smlnj-runtime-common)

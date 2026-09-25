@@ -4,7 +4,7 @@
 # All rights reserved.
 #
 
-smlnj_add_c_library(smlnj-clib-smlnj-sockets
+add_library(smlnj-clib-smlnj-sockets STATIC
   smlnj-sock-lib.c
   gethostname.c
   getnetbyname.c
@@ -61,3 +61,4 @@ smlnj_add_c_library(smlnj-clib-smlnj-sockets
   tbl-addr-family.c
   tbl-sock-type.c
 )
+target_link_libraries(smlnj-clib-smlnj-sockets PRIVATE smlnj-clib-common)

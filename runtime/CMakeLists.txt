@@ -25,19 +25,6 @@ include(CheckPIESupported)
 
 set(SMLNJ_RUNTIME_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-# smlnj_runtime_c_standard(<target>...)
-#
-# the runtime is written in C99 with GNU extensions (the makefiles used
-# -std=gnu99).  Newer compilers default to C23, which breaks the code, so
-# every target that compiles runtime C code pins the language standard.
-# (A compile feature cannot do this, since it only specifies a minimum.)
-#
-function(smlnj_runtime_c_standard)
-  set_target_properties(${ARGN} PROPERTIES
-    C_STANDARD 99
-    C_STANDARD_REQUIRED ON
-    C_EXTENSIONS ON)
-endfunction()
 
 ## Target architecture and operating system ##
 
@@ -71,7 +58,18 @@ message(STATUS "SML/NJ runtime system: ${SMLNJ_ARCH_OPSYS}")
 
 ## Compilation settings (the DEFS variable of the mk.<arch>-<opsys> files) ##
 
+# the language standard for the runtime's C code.  The runtime is written in
+# C99 with GNU extensions (the makefiles used -std=gnu99), and newer compilers
+# default to C23, which breaks the code.  A compile feature cannot express
+# this, since it only specifies a minimum standard (which C23 satisfies), so
+# we pass the flag.
+#
+add_library(smlnj-runtime-c-standard INTERFACE)
+target_compile_options(smlnj-runtime-c-standard INTERFACE
+  $<$<COMPILE_LANGUAGE:C>:-std=gnu99>)
+
 add_library(smlnj-runtime-defs INTERFACE)
+target_link_libraries(smlnj-runtime-defs INTERFACE smlnj-runtime-c-standard)
 
 target_compile_definitions(smlnj-runtime-defs INTERFACE
   ARCH_${SMLNJ_ARCH} SIZE_64 OPSYS_UNIX DLOPEN INDIRECT_CFUNC)
@@ -160,7 +158,6 @@ set_source_files_properties(mach-dep/${SMLNJ_ARCH}.prim.asm PROPERTIES
   COMPILE_DEFINITIONS _ASM_)
 
 add_library(smlnj-kernel OBJECT ${KERNEL_SRCS})
-smlnj_runtime_c_standard(smlnj-kernel)
 target_include_directories(smlnj-kernel PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/c-libs)
 target_link_libraries(smlnj-kernel PUBLIC smlnj-runtime-common)
 
@@ -266,8 +263,6 @@ target_link_libraries(smlnj-runx PRIVATE smlnj-kernel ${runx_archives})
 add_dependencies(smlnj-runx ${runx_deps})
 target_link_options(smlnj-runx PRIVATE -r)
 set_target_properties(smlnj-runx PROPERTIES OUTPUT_NAME runx.${SMLNJ_ARCH_OPSYS})
-
-smlnj_runtime_c_standard(smlnj-run smlnj-runx)
 
 if (DEFINED link_as_pie)
   set_target_properties(smlnj-run smlnj-runx PROPERTIES

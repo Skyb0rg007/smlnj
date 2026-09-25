@@ -4,12 +4,13 @@
 # All rights reserved.
 #
 
-smlnj_add_c_library(smlnj-clib-smlnj-prof
+add_library(smlnj-clib-smlnj-prof STATIC
   smlnj-prof-lib.c
   getpquantum.c
   setpref.c
   setptimer.c
 )
+target_link_libraries(smlnj-clib-smlnj-prof PRIVATE smlnj-clib-common)
 
 # these functions access the internals of the garbage collector
 target_include_directories(smlnj-clib-smlnj-prof PRIVATE ${SMLNJ_RUNTIME_SOURCE_DIR}/gc)

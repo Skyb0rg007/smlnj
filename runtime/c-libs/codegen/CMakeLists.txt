@@ -4,13 +4,14 @@
 # All rights reserved.
 #
 
-smlnj_add_c_library(smlnj-clib-codegen
+add_library(smlnj-clib-codegen STATIC
   codegen-lib.c
   generate.c
   list-targets.c
   set-target.c
   codegen.cpp
 )
+target_link_libraries(smlnj-clib-codegen PRIVATE smlnj-clib-common)
 
 # the interface to the LLVM-based code generator (written in C++)
 target_compile_options(smlnj-clib-codegen PRIVATE

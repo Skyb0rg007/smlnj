@@ -4,7 +4,7 @@
 # All rights reserved.
 #
 
-smlnj_add_c_library(smlnj-clib-smlnj-signals
+add_library(smlnj-clib-smlnj-signals STATIC
   smlnj-sig-lib.c
   getsigmask.c
   getsigstate.c
@@ -13,3 +13,4 @@ smlnj_add_c_library(smlnj-clib-smlnj-signals
   setsigmask.c
   setsigstate.c
 )
+target_link_libraries(smlnj-clib-smlnj-signals PRIVATE smlnj-clib-common)

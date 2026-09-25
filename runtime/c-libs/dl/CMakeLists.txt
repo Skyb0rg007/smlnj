@@ -4,12 +4,13 @@
 # All rights reserved.
 #
 
-smlnj_add_c_library(smlnj-clib-dl
+add_library(smlnj-clib-dl STATIC
   unix-dynload-lib.c
   dlopen.c
   dlclose.c
   dlsym.c
   dlerror.c
 )
+target_link_libraries(smlnj-clib-dl PRIVATE smlnj-clib-common)
 
 target_link_libraries(smlnj-clib-dl PRIVATE ${CMAKE_DL_LIBS})

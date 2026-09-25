@@ -4,8 +4,9 @@
 # All rights reserved.
 #
 
-smlnj_add_c_library(smlnj-clib-smlnj-time
+add_library(smlnj-clib-smlnj-time STATIC
   smlnj-time-lib.c
   gettime.c
   timeofday.c
 )
+target_link_libraries(smlnj-clib-smlnj-time PRIVATE smlnj-clib-common)

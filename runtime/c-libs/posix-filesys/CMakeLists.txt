@@ -7,7 +7,7 @@
 # the table of _PC_ names, which is generated from <unistd.h>
 smlnj_gen_posix_names(_PC_ ml_pathconf.h)
 
-smlnj_add_c_library(smlnj-clib-posix-filesys
+add_library(smlnj-clib-posix-filesys STATIC
   posix-filesys-lib.c
   osval.c
   chdir.c
@@ -37,4 +37,5 @@ smlnj_add_c_library(smlnj-clib-posix-filesys
   pathconf.c
   ${CMAKE_CURRENT_BINARY_DIR}/ml_pathconf.h
 )
+target_link_libraries(smlnj-clib-posix-filesys PRIVATE smlnj-clib-common)
 target_include_directories(smlnj-clib-posix-filesys PRIVATE ${CMAKE_CURRENT_BINARY_DIR})

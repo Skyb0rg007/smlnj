@@ -4,10 +4,11 @@
 # All rights reserved.
 #
 
-smlnj_add_c_library(smlnj-clib-posix-sysdb
+add_library(smlnj-clib-posix-sysdb STATIC
   posix-sysdb-lib.c
   getgrgid.c
   getgrnam.c
   getpwuid.c
   getpwnam.c
 )
+target_link_libraries(smlnj-clib-posix-sysdb PRIVATE smlnj-clib-common)

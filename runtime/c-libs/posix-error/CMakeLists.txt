@@ -4,7 +4,7 @@
 # All rights reserved.
 #
 
-smlnj_add_c_library(smlnj-clib-posix-error
+add_library(smlnj-clib-posix-error STATIC
   posix-error-lib.c
   posix-name-val.c
   errmsg.c
@@ -12,3 +12,4 @@ smlnj_add_c_library(smlnj-clib-posix-error
   listerrors.c
   tbl-errno.c
 )
+target_link_libraries(smlnj-clib-posix-error PRIVATE smlnj-clib-common)

@@ -4,7 +4,7 @@
 # All rights reserved.
 #
 
-smlnj_add_c_library(smlnj-clib-posix-io
+add_library(smlnj-clib-posix-io STATIC
   posix-io-lib.c
   osval.c
   pipe.c
@@ -24,3 +24,4 @@ smlnj_add_c_library(smlnj-clib-posix-io
   lseek.c
   fsync.c
 )
+target_link_libraries(smlnj-clib-posix-io PRIVATE smlnj-clib-common)

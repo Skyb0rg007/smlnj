@@ -4,7 +4,7 @@
 # All rights reserved.
 #
 
-smlnj_add_c_library(smlnj-clib-posix-tty
+add_library(smlnj-clib-posix-tty STATIC
   posix-tty-lib.c
   osval.c
   tcdrain.c
@@ -17,3 +17,4 @@ smlnj_add_c_library(smlnj-clib-posix-tty
   tcsetpgrp.c
   getwinsz.c
 )
+target_link_libraries(smlnj-clib-posix-tty PRIVATE smlnj-clib-common)

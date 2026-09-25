@@ -7,19 +7,14 @@
 # registered with the runtime by c-libraries.c (see clib-list.h).
 #
 
-# smlnj_add_c_library(<name> <source>...)
+# the usage requirements of the C function libraries: the libraries include
+# files from the runtime's include directory, the generated headers, and this
+# directory (e.g., ml-c.h); the functions allocate ML objects, so the libraries
+# depend on the GC library.
 #
-# define a C function library; the library can include files from
-# the runtime's include directory, the generated headers, this directory
-# (e.g., ml-c.h), and its own directory (e.g., cfun-list.h).  The functions
-# allocate ML objects, so the libraries depend on the GC library.
-#
-function(smlnj_add_c_library name)
-  add_library(${name} STATIC ${ARGN})
-  smlnj_runtime_c_standard(${name})
-  target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_FUNCTION_LIST_DIR})
-  target_link_libraries(${name} PRIVATE smlnj-runtime-common smlnj-gc)
-endfunction()
+add_library(smlnj-clib-common INTERFACE)
+target_include_directories(smlnj-clib-common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(smlnj-clib-common INTERFACE smlnj-runtime-common smlnj-gc)
 
 # libm is a separate library on most Unix systems, but not on macOS
 #

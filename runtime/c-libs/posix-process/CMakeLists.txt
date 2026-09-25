@@ -4,7 +4,7 @@
 # All rights reserved.
 #
 
-smlnj_add_c_library(smlnj-clib-posix-process
+add_library(smlnj-clib-posix-process STATIC
   posix-process-lib.c
   osval.c
   fork.c
@@ -18,3 +18,4 @@ smlnj_add_c_library(smlnj-clib-posix-process
   pause.c
   sleep.c
 )
+target_link_libraries(smlnj-clib-posix-process PRIVATE smlnj-clib-common)

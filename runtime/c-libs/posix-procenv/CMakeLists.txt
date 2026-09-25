@@ -7,7 +7,7 @@
 # the table of _SC_ names, which is generated from <unistd.h>
 smlnj_gen_posix_names(_SC_ ml_sysconf.h)
 
-smlnj_add_c_library(smlnj-clib-posix-procenv
+add_library(smlnj-clib-posix-procenv STATIC
   posix-procenv-lib.c
   getpid.c
   getppid.c
@@ -33,4 +33,5 @@ smlnj_add_c_library(smlnj-clib-posix-procenv
   isatty.c
   ${CMAKE_CURRENT_BINARY_DIR}/ml_sysconf.h
 )
+target_link_libraries(smlnj-clib-posix-procenv PRIVATE smlnj-clib-common)
 target_include_directories(smlnj-clib-posix-procenv PRIVATE ${CMAKE_CURRENT_BINARY_DIR})

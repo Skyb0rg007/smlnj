@@ -4,7 +4,7 @@
 # All rights reserved.
 #
 
-smlnj_add_c_library(smlnj-clib-smlnj-math
+add_library(smlnj-clib-smlnj-math STATIC
   smlnj-math-lib.c
   ctlrndmode.c
   atan64.c
@@ -14,6 +14,7 @@ smlnj_add_c_library(smlnj-clib-smlnj-math
   sin64.c
   sqrt64.c
 )
+target_link_libraries(smlnj-clib-smlnj-math PRIVATE smlnj-clib-common)
 
 if (SMLNJ_NEED_LIBM)
   target_link_libraries(smlnj-clib-smlnj-math PRIVATE m)
