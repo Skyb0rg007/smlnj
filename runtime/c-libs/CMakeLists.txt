@@ -16,6 +16,7 @@
 #
 function(smlnj_add_c_library name)
   add_library(${name} STATIC ${ARGN})
+  smlnj_runtime_c_standard(${name})
   target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_FUNCTION_LIST_DIR})
   target_link_libraries(${name} PRIVATE smlnj-runtime-common smlnj-gc)
 endfunction()

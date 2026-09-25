@@ -18,6 +18,7 @@ set(gen_dir ${CMAKE_CURRENT_BINARY_DIR})
 # common support code for the generator programs
 #
 add_library(smlnj-gen-common OBJECT gen-common.c)
+smlnj_runtime_c_standard(smlnj-gen-common)
 target_include_directories(smlnj-gen-common PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${SMLNJ_RUNTIME_SOURCE_DIR}/include
@@ -27,6 +28,7 @@ target_link_libraries(smlnj-gen-common PUBLIC smlnj-runtime-defs)
 # the table of Unix signals, which is shared by two of the generators
 #
 add_library(smlnj-gen-signal-table OBJECT unix-signals.c)
+smlnj_runtime_c_standard(smlnj-gen-signal-table)
 target_link_libraries(smlnj-gen-signal-table PUBLIC smlnj-gen-common)
 
 # smlnj_add_generator(<program> <output> <source>... [DEPENDS <file>...])
@@ -38,6 +40,7 @@ target_link_libraries(smlnj-gen-signal-table PUBLIC smlnj-gen-common)
 function(smlnj_add_generator prog output)
   cmake_parse_arguments(PARSE_ARGV 2 arg "" "" "DEPENDS")
   add_executable(${prog} ${arg_UNPARSED_ARGUMENTS} ${arg_DEPENDS})
+  smlnj_runtime_c_standard(${prog})
   target_link_libraries(${prog} PRIVATE smlnj-gen-common)
   add_custom_command(
     OUTPUT ${gen_dir}/${output}

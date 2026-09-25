@@ -15,6 +15,10 @@
 # To use a local checkout of that repository instead (e.g., when working on
 # the code generator), set FETCHCONTENT_SOURCE_DIR_SMLNJ-LLVM to its path.
 #
+# A build type (e.g., -DCMAKE_BUILD_TYPE=Release) must be given when LLVM is
+# built as part of this project; LLVM refuses to configure without one.
+# build.sh specifies it.
+#
 
 cmake_minimum_required(VERSION 3.23.0)
 
@@ -38,18 +42,6 @@ if ("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
          Create a separate directory for build files.
 ")
 endif()
-
-# check the build type
-#
-if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-  message(STATUS "No build type selected, default to Release")
-  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type (default Release)" FORCE)
-endif()
-
-# LLVM 21.1 uses C++17
-#
-set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to conform to")
-set(CMAKE_CXX_STANDARD_REQUIRED YES)
 
 include(GNUInstallDirs)
 
@@ -81,11 +73,11 @@ option(SMLNJ_SANITIZE_ADDRESS
 # the source archive for the pinned commit of smlnj-llvm.  Update both the
 # URL and the hash together when moving to a new commit.
 #
-set(SMLNJ_LLVM_COMMIT "94a57836aa9c06f9c708da0996c298c217b1f791")
+set(SMLNJ_LLVM_COMMIT "b393ae2d86f26ee51a24e22edda24ab5dd79e07f")
 set(SMLNJ_LLVM_URL
   "https://github.com/Skyb0rg007/smlnj-llvm-21.1/archive/${SMLNJ_LLVM_COMMIT}.tar.gz")
 set(SMLNJ_LLVM_URL_HASH
-  "SHA256=f2478aa2a6e86ba9fe9e213d14b4e8a19cba9851ffdd1aa18afff2e65cfbc39a")
+  "SHA256=9758697271f001294fee5a4183752841498d57d201a457344779e6f6db9e1df8")
 
 # translate SMLNJ_LLVM_TARGETS into the smlnj-llvm setting
 #

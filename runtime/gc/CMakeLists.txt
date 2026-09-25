@@ -33,5 +33,6 @@ set(HEAP_IO_SRCS
   c-globals-tbl.c)
 
 add_library(smlnj-gc STATIC ${GC_SRCS} ${HEAP_IO_SRCS})
+smlnj_runtime_c_standard(smlnj-gc)
 target_include_directories(smlnj-gc PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(smlnj-gc PRIVATE smlnj-runtime-common smlnj-mem)
