@@ -20,8 +20,8 @@ here=$(pwd)
 cd "$(dirname $cmd)" || exit 1
 SMLNJ_ROOT="$(pwd)"
 
-# the directory used by CMake to fetch and build the LLVM dependency
-LLVM_BUILD_DIR="$SMLNJ_ROOT/build"
+# the directory used by CMake to build the runtime system and its LLVM dependency
+CMAKE_BUILD_DIR="$SMLNJ_ROOT/build"
 
 # the minimum version of CMake that we require
 CMAKE_MIN_VERSION=3.23
@@ -147,8 +147,8 @@ check_cmake() {
 }
 
 #
-# determine the number of cores to use when building LLVM.  We use
-# the available parallelism, but avoid hyperthreads.
+# determine the number of cores to use when building the runtime system and
+# LLVM.  We use the available parallelism, but avoid hyperthreads.
 #
 NPROCS=2
 case $(uname -s) in
@@ -175,12 +175,13 @@ case $(uname -s) in
 esac
 
 #
-# configure, build, and install the LLVM dependency (the patched LLVM plus
-# the SML/NJ code-generation libraries) using the CMake project in the
-# root directory.  By default, CMake downloads the smlnj-llvm sources; the
-# "-llvmdir" option can be used to specify a local source tree instead.
+# configure, build, and install the runtime system and its LLVM dependency
+# (the patched LLVM plus the SML/NJ code-generation libraries) using the
+# CMake project in the root directory.  By default, CMake downloads the
+# smlnj-llvm sources; the "-llvmdir" option can be used to specify a local
+# source tree instead.
 #
-build_llvm() {
+build_runtime() {
   check_cmake
   if [ x"$CMAKE_GENERATOR" = x ] ; then
     if command -v ninja >/dev/null 2>&1 ; then
@@ -196,7 +197,7 @@ build_llvm() {
     -DSMLNJ_BUILD_CFGC=$BUILD_CFGC \
   "
   if [ x"$SANITIZE_ADDRESS" = xyes ] ; then
-    CMAKE_DEFS="$CMAKE_DEFS -DLLVM_USE_SANITIZER=Address"
+    CMAKE_DEFS="$CMAKE_DEFS -DLLVM_USE_SANITIZER=Address -DSMLNJ_SANITIZE_ADDRESS=ON"
   fi
   if [ x"$LLVMDIR" != x ] ; then
     CMAKE_DEFS="$CMAKE_DEFS -DFETCHCONTENT_SOURCE_DIR_SMLNJ-LLVM=$LLVMDIR"
@@ -204,14 +205,14 @@ build_llvm() {
   if [ "$(uname -s)" = "Darwin" ] ; then
     CMAKE_DEFS="$CMAKE_DEFS -DCMAKE_OSX_DEPLOYMENT_TARGET=11"
   fi
-  vsay "$cmd: configuring LLVM build in $LLVM_BUILD_DIR"
-  dsay cmake -S "$SMLNJ_ROOT" -B "$LLVM_BUILD_DIR" -G "$CMAKE_GENERATOR" $CMAKE_DEFS
-  cmake -S "$SMLNJ_ROOT" -B "$LLVM_BUILD_DIR" -G "$CMAKE_GENERATOR" $CMAKE_DEFS \
-    || complain "Unable to configure LLVM"
-  vsay "$cmd: building LLVM on $NPROCS cores"
-  dsay cmake --build "$LLVM_BUILD_DIR" --parallel "$NPROCS" --target install
-  cmake --build "$LLVM_BUILD_DIR" --parallel "$NPROCS" --target install \
-    || complain "Unable to build LLVM"
+  vsay "$cmd: configuring the run-time system and LLVM in $CMAKE_BUILD_DIR"
+  dsay cmake -S "$SMLNJ_ROOT" -B "$CMAKE_BUILD_DIR" -G "$CMAKE_GENERATOR" $CMAKE_DEFS
+  cmake -S "$SMLNJ_ROOT" -B "$CMAKE_BUILD_DIR" -G "$CMAKE_GENERATOR" $CMAKE_DEFS \
+    || complain "Unable to configure the run-time system"
+  vsay "$cmd: building the run-time system and LLVM on $NPROCS cores"
+  dsay cmake --build "$CMAKE_BUILD_DIR" --parallel "$NPROCS" --target install
+  cmake --build "$CMAKE_BUILD_DIR" --parallel "$NPROCS" --target install \
+    || complain "Unable to build the run-time system"
 }
 
 # pre-flight cleanup
@@ -219,13 +220,13 @@ build_llvm() {
 cd "$SMLNJ_ROOT" || exit 1
 if [ x${CLEAN_INSTALL} = xyes ] ; then
   vsay "$cmd: remove existing executables and libraries"
-  rm -rf bin include lib "$LLVM_BUILD_DIR"
+  rm -rf bin include lib "$CMAKE_BUILD_DIR"
 elif [ x${INSTALL_DEV} = xyes ]; then
   # since we are building the development version, we first remove the
   # existing runtime system
   #
   vsay "$cmd: remove existing run-time system"
-  rm -rf "bin/.run" "$LLVM_BUILD_DIR"
+  rm -rf "bin/.run" "$CMAKE_BUILD_DIR"
 fi
 
 #
@@ -259,7 +260,6 @@ vsay "$cmd: Installation directory is $INSTALLDIR."
 # set the various directory and file pathname variables
 #
 CONFIGDIR="$SMLNJ_ROOT/config"
-RUNTIMEDIR="$SMLNJ_ROOT/runtime"
 if [ x"$LLVMDIR_OPTION" != x ] ; then
   # check the validity of the path specified by the user
   if [ ! -f "$LLVMDIR_OPTION/LLVM-VERSION" ] ; then
@@ -470,33 +470,6 @@ fi
 #
 ALLOC=1M
 
-# OS-specific things for building the runtime system
-#
-RT_MAKEFILE=mk.$ARCH-$OPSYS
-XDEFS=""
-EXTRA_DEFS=""
-case $OPSYS in
-  darwin)
-    EXTRA_DEFS="AS_ACCEPTS_SDK=yes"
-    ;;
-  linux)
-    XDEFS=$("$CONFIGDIR/chk-global-names.sh")
-    if [ "$?" != "0" ]; then
-      complain "Problems checking for underscores in asm names."
-    fi
-    ;;
-esac
-
-# add other runtime-system options
-#
-if [ x"$SANITIZE_ADDRESS" = xyes ] ; then
-  if [ x"$XDEFS" = x ] ; then
-    XDEFS="-fsanitize=address"
-  else
-    XDEFS="$XDEFS -fsanitize=address"
-  fi
-fi
-
 #
 # build the run-time system
 #
@@ -504,37 +477,18 @@ if [ -x "$RUNDIR"/run.$ARCH-$OPSYS ]; then
   vsay $cmd: Run-time system already exists.
 else
   #
-  # first we configure and build the LLVM and CFGCodeGen libraries.  Note that
-  # if the "-dev" option was given, then we rebuild LLVM even if it is already
-  # built, since we want to assure that the cross compiler is supported.
+  # the CMake project builds LLVM, the CFGCodeGen library, and the run-time
+  # system, and installs them.  If the "-dev" option was given, then LLVM
+  # supports all targets, since we want to assure that the cross compiler
+  # is supported.
   #
   if [ x"$INSTALL_DEV" = xyes ] ; then
-    vsay $cmd: Building LLVM for all targets
-    build_llvm
-  elif [ ! -x "$BINDIR/llvm-config" ] ; then
-    vsay $cmd: Building LLVM
-    build_llvm
-  fi
-  cd "$RUNTIMEDIR/objs" || exit 1
-  vsay $cmd: Compiling the run-time system.
-  if [ x"$XDEFS" != x ] ; then
-    make -f $RT_MAKEFILE "XDEFS=\"$XDEFS\"" $EXTRA_DEFS
+    vsay $cmd: Building the run-time system with LLVM support for all targets
   else
-    make -f $RT_MAKEFILE $EXTRA_DEFS
+    vsay $cmd: Building the run-time system
   fi
-  if [ -x run.$ARCH-$OPSYS ]; then
-    mv run.$ARCH-$OPSYS "$RUNDIR"
-    if [ -f runx.$ARCH-$OPSYS ]; then
-      mv runx.$ARCH-$OPSYS "$RUNDIR"
-    fi
-    if [ -f runx.$ARCH-$OPSYS.so ]; then
-      mv runx.$ARCH-$OPSYS.so "$RUNDIR"
-    fi
-    if [ -f runx.$ARCH-$OPSYS.a ]; then
-      mv runx.$ARCH-$OPSYS.a "$RUNDIR"
-    fi
-    make MAKE=make clean
-  else
+  build_runtime
+  if [ ! -x "$RUNDIR"/run.$ARCH-$OPSYS ]; then
     complain "Run-time system build failed for some reason."
   fi
 fi

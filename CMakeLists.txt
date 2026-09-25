@@ -3,12 +3,12 @@
 # COPYRIGHT (c) 2026 The Fellowship of SML/NJ (https://www.smlnj.org)
 # All rights reserved.
 #
-# At present, this project only provides the `smlnj-llvm` dependency, which
-# is the patched LLVM together with the SML/NJ code-generation libraries and
-# the heap2obj tool.  The build.sh script uses this project to build and
-# install that dependency before it compiles the runtime system with the
-# makefiles in runtime/objs.  Building the rest of the system with CMake
-# is future work.
+# At present, this project builds the SML/NJ runtime system (see
+# runtime/CMakeLists.txt) and its `smlnj-llvm` dependency, which is the
+# patched LLVM together with the SML/NJ code-generation libraries and the
+# heap2obj tool.  The build.sh script uses this project to build and install
+# them before it builds the compiler and libraries from the boot files.
+# Building the rest of the system with CMake is future work.
 #
 # The dependency is fetched as a source archive of a specific commit of
 # https://github.com/Skyb0rg007/smlnj-llvm-21.1 (see SMLNJ_LLVM_URL below).
@@ -51,6 +51,8 @@ endif()
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to conform to")
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 
+include(GNUInstallDirs)
+
 # use the timestamps of the extracted files for downloaded archives
 #
 if (POLICY CMP0135)
@@ -69,6 +71,10 @@ option(SMLNJ_LLVM_INSTALL
 option(SMLNJ_LLVM_FIND_PACKAGE
   "Use an installed smlnj-llvm package (found via find_package) instead of fetching and building it"
   OFF)
+option(SMLNJ_BUILD_RUNTIME
+  "Build the runtime system (turn off to only build the smlnj-llvm dependency)" ON)
+option(SMLNJ_SANITIZE_ADDRESS
+  "Compile the runtime system with the address sanitizer" OFF)
 
 ## The smlnj-llvm dependency ##
 
@@ -106,4 +112,10 @@ else()
     URL ${SMLNJ_LLVM_URL}
     URL_HASH ${SMLNJ_LLVM_URL_HASH})
   FetchContent_MakeAvailable(smlnj-llvm)
+endif()
+
+## The runtime system ##
+
+if (SMLNJ_BUILD_RUNTIME)
+  add_subdirectory(runtime)
 endif()
