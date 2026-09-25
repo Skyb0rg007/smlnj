@@ -1,4 +1,0 @@
-[submodule "runtime/llvm21"]
-	path = runtime/llvm21
-	url = git@github.com:Skyb0rg007/smlnj-llvm-21.1.git
-	branch = cmake-package

@@ -60,13 +60,13 @@ these steps:
 
 2. Clone the repository
     ``` bash
-    git clone --depth 1 --branch v$VERSION --recurse-submodules https://github.com/smlnj/smlnj.git
+    git clone --depth 1 --branch v$VERSION https://github.com/smlnj/smlnj.git
     ```
     The `--depth` option limits the download to just one commit (*i.e.*, no
-    history), the `--branch` option specifies the version of the source
-    code that you are requesting, and the `--recurse-submodules` option is
-    necessary to fetch the customized version of the **LLVM** library that we
-    use.
+    history) and the `--branch` option specifies the version of the source
+    code that you are requesting.  The customized version of the **LLVM**
+    library that we use is downloaded by CMake during the build (see the
+    `-llvmdir` option of `build.sh` to use a local copy instead).
 
 3. build the installation
     ``` bash

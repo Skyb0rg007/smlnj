@@ -20,8 +20,11 @@ here=$(pwd)
 cd "$(dirname $cmd)" || exit 1
 SMLNJ_ROOT="$(pwd)"
 
-# default LLVM directory
-LLVM_DIRNAME=llvm21
+# the directory used by CMake to fetch and build the LLVM dependency
+LLVM_BUILD_DIR="$SMLNJ_ROOT/build"
+
+# the minimum version of CMake that we require
+CMAKE_MIN_VERSION=3.23
 
 complain() {
   echo "$cmd: !!! $*"
@@ -43,8 +46,9 @@ usage() {
   echo "developer options:"
   echo "    -debug-llvm        build a debug version of the LLVM libraries"
   echo "    -sanitize-address  sanitize addresses to check for memory bugs"
-  echo "    -llvmdir dir       specify the name of the LLVM directory (default $LLVM_DIRNAME)"
+  echo "    -llvmdir dir       use a local smlnj-llvm source tree instead of downloading it"
   echo "    -build-cfgc        build the cfgc compiler"
+  echo "    -make              use makefiles (instead of ninja) to build LLVM"
   exit 1
 }
 
@@ -60,7 +64,10 @@ ONLY_RUNTIME=no
 MAKE_DOC=no
 SANITIZE_ADDRESS=no
 LLVMDIR_OPTION=""
-BUILD_LLVM_FLAGS=""
+LLVM_BUILD_TYPE=Release
+LLVM_TARGETS=host
+BUILD_CFGC=no
+CMAKE_GENERATOR=""
 while [ "$#" != "0" ] ; do
   arg=$1; shift
   case $arg in
@@ -77,22 +84,20 @@ while [ "$#" != "0" ] ; do
     -debug) INSTALL_DEBUG=yes ; QUIET=no ;;
     -dev)
       INSTALL_DEV=yes;
-      BUILD_LLVM_FLAGS="-all-targets $BUILD_LLVM_FLAGS"
+      LLVM_TARGETS=all
     ;;
     -runtime) ONLY_RUNTIME=yes ;;
     -doc) MAKE_DOC=yes ;;
-    -debug-llvm) BUILD_LLVM_FLAGS="-debug $BUILD_LLVM_FLAGS" ;;
-    -sanitize-address)
-      SANITIZE_ADDRESS=yes
-      BUILD_LLVM_FLAGS="-sanitize-address $BUILD_LLVM_FLAGS"
-      ;;
+    -debug-llvm) LLVM_BUILD_TYPE=Debug ;;
+    -sanitize-address) SANITIZE_ADDRESS=yes ;;
     -llvmdir)
       if [ "$#" -gt 0 ] ; then
         LLVMDIR_OPTION=$1; shift
       else
         usage
       fi ;;
-    -build-cfgc) BUILD_LLVM_FLAGS="-build-cfgc $BUILD_LLVM_FLAGS" ;;
+    -build-cfgc) BUILD_CFGC=yes ;;
+    -make) CMAKE_GENERATOR="Unix Makefiles" ;;
     *) usage ;;
   esac
 done
@@ -122,18 +127,105 @@ else
   CM_VERBOSE=true
 fi
 
+#
+# check that we have a recent enough version of CMake
+#
+check_cmake() {
+  if ! command -v cmake >/dev/null 2>&1 ; then
+    complain "Installation of SML/NJ requires CMake version $CMAKE_MIN_VERSION or later"
+  fi
+  CMAKE_VERSION="$(cmake --version | sed -n 's/^cmake version \([0-9][0-9.]*\).*/\1/p')"
+  # compare major.minor numerically
+  CMAKE_MAJOR=${CMAKE_VERSION%%.*}
+  CMAKE_MINOR=${CMAKE_VERSION#*.}; CMAKE_MINOR=${CMAKE_MINOR%%.*}
+  MIN_MAJOR=${CMAKE_MIN_VERSION%%.*}
+  MIN_MINOR=${CMAKE_MIN_VERSION#*.}
+  if [ "$CMAKE_MAJOR" -lt "$MIN_MAJOR" ] || \
+     { [ "$CMAKE_MAJOR" -eq "$MIN_MAJOR" ] && [ "$CMAKE_MINOR" -lt "$MIN_MINOR" ]; } ; then
+    complain "Installation of SML/NJ requires CMake version $CMAKE_MIN_VERSION or later (found $CMAKE_VERSION)"
+  fi
+}
+
+#
+# determine the number of cores to use when building LLVM.  We use
+# the available parallelism, but avoid hyperthreads.
+#
+NPROCS=2
+case $(uname -s) in
+  Darwin)
+    case $(uname -p) in
+      arm) # on arm processors, we only use the performance cores
+        NPROCS=$(sysctl -n hw.perflevel0.physicalcpu)
+        ;;
+      *) # otherwise use the physical core count
+        NPROCS=$(sysctl -n hw.physicalcpu)
+        ;;
+    esac
+    ;;
+  Linux)
+    if command -v nproc >/dev/null 2>&1; then
+      # NPROCS reports the number of hardware threads, which is usually twice the
+      # number of actual cores, so we will divide by two.
+      NPROCS=$(nproc --all)
+      if [ "$NPROCS" -gt 4 ] ; then
+        NPROCS=$((NPROCS / 2))
+      fi
+    fi
+    ;;
+esac
+
+#
+# configure, build, and install the LLVM dependency (the patched LLVM plus
+# the SML/NJ code-generation libraries) using the CMake project in the
+# root directory.  By default, CMake downloads the smlnj-llvm sources; the
+# "-llvmdir" option can be used to specify a local source tree instead.
+#
+build_llvm() {
+  check_cmake
+  if [ x"$CMAKE_GENERATOR" = x ] ; then
+    if command -v ninja >/dev/null 2>&1 ; then
+      CMAKE_GENERATOR="Ninja"
+    else
+      CMAKE_GENERATOR="Unix Makefiles"
+    fi
+  fi
+  CMAKE_DEFS="\
+    -DCMAKE_INSTALL_PREFIX=$INSTALLDIR \
+    -DCMAKE_BUILD_TYPE=$LLVM_BUILD_TYPE \
+    -DSMLNJ_LLVM_TARGETS=$LLVM_TARGETS \
+    -DSMLNJ_BUILD_CFGC=$BUILD_CFGC \
+  "
+  if [ x"$SANITIZE_ADDRESS" = xyes ] ; then
+    CMAKE_DEFS="$CMAKE_DEFS -DLLVM_USE_SANITIZER=Address"
+  fi
+  if [ x"$LLVMDIR" != x ] ; then
+    CMAKE_DEFS="$CMAKE_DEFS -DFETCHCONTENT_SOURCE_DIR_SMLNJ-LLVM=$LLVMDIR"
+  fi
+  if [ "$(uname -s)" = "Darwin" ] ; then
+    CMAKE_DEFS="$CMAKE_DEFS -DCMAKE_OSX_DEPLOYMENT_TARGET=11"
+  fi
+  vsay "$cmd: configuring LLVM build in $LLVM_BUILD_DIR"
+  dsay cmake -S "$SMLNJ_ROOT" -B "$LLVM_BUILD_DIR" -G "$CMAKE_GENERATOR" $CMAKE_DEFS
+  cmake -S "$SMLNJ_ROOT" -B "$LLVM_BUILD_DIR" -G "$CMAKE_GENERATOR" $CMAKE_DEFS \
+    || complain "Unable to configure LLVM"
+  vsay "$cmd: building LLVM on $NPROCS cores"
+  dsay cmake --build "$LLVM_BUILD_DIR" --parallel "$NPROCS" --target install
+  cmake --build "$LLVM_BUILD_DIR" --parallel "$NPROCS" --target install \
+    || complain "Unable to build LLVM"
+}
+
 # pre-flight cleanup
 #
 cd "$SMLNJ_ROOT" || exit 1
 if [ x${CLEAN_INSTALL} = xyes ] ; then
   vsay "$cmd: remove existing executables and libraries"
-  rm -rf bin include lib runtime/$LLVM_DIRNAME/build
+  rm -rf bin include lib "$LLVM_BUILD_DIR"
 elif [ x${INSTALL_DEV} = xyes ]; then
   # since we are building the development version, we first remove the
   # existing runtime system
   #
   vsay "$cmd: remove existing run-time system"
-  rm -rf "bin/.run" runtime/$LLVM_DIRNAME/build
+  rm -rf "bin/.run" "$LLVM_BUILD_DIR"
 fi
 
 #
@@ -169,13 +261,13 @@ vsay "$cmd: Installation directory is $INSTALLDIR."
 CONFIGDIR="$SMLNJ_ROOT/config"
 RUNTIMEDIR="$SMLNJ_ROOT/runtime"
 if [ x"$LLVMDIR_OPTION" != x ] ; then
-  LLVMDIR="$RUNTIMEDIR/$LLVMDIR_OPTION"
   # check the validity of the path specified by the user
-  if [ ! -x "$LLVMDIR/build-llvm.sh" ] ; then
-    complain "invalid LLVM directory: build-llvm.sh script is missing"
+  if [ ! -f "$LLVMDIR_OPTION/LLVM-VERSION" ] ; then
+    complain "invalid LLVM directory: $LLVMDIR_OPTION is not a smlnj-llvm source tree"
   fi
+  LLVMDIR="$(cd "$LLVMDIR_OPTION" && pwd)"
 else
-  LLVMDIR="$RUNTIMEDIR/$LLVM_DIRNAME"
+  LLVMDIR=""
 fi
 
 #
@@ -187,7 +279,7 @@ RUNDIR=$BINDIR/.run		# where executables (i.e., the RTS) live
 LIBDIR=$INSTALLDIR/lib		# where libraries live
 
 # export variables used by the installer
-export SMLNJ_ROOT INSTALLDIR CONFIGDIR BINDIR LIBDIR LLVMDIR
+export SMLNJ_ROOT INSTALLDIR CONFIGDIR BINDIR LIBDIR
 
 #
 # old root environment variable (for compatibility)
@@ -416,17 +508,12 @@ else
   # if the "-dev" option was given, then we rebuild LLVM even if it is already
   # built, since we want to assure that the cross compiler is supported.
   #
-  BUILD_LLVM_FLAGS="-install $INSTALLDIR $BUILD_LLVM_FLAGS"
   if [ x"$INSTALL_DEV" = xyes ] ; then
-    vsay $cmd: Building LLVM for all targets in $LLVMDIR
-    cd "$LLVMDIR" || exit 1
-    dsay ./build-llvm.sh $BUILD_LLVM_FLAGS
-    ./build-llvm.sh $BUILD_LLVM_FLAGS || complain "Unable to build LLVM"
+    vsay $cmd: Building LLVM for all targets
+    build_llvm
   elif [ ! -x "$BINDIR/llvm-config" ] ; then
-    vsay $cmd: Building LLVM in $LLVMDIR
-    cd "$LLVMDIR" || exit 1
-    dsay ./build-llvm.sh $BUILD_LLVM_FLAGS
-    ./build-llvm.sh $BUILD_LLVM_FLAGS || complain "Unable to build LLVM"
+    vsay $cmd: Building LLVM
+    build_llvm
   fi
   cd "$RUNTIMEDIR/objs" || exit 1
   vsay $cmd: Compiling the run-time system.
