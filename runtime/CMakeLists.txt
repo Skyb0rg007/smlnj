@@ -58,15 +58,12 @@ message(STATUS "SML/NJ runtime system: ${SMLNJ_ARCH_OPSYS}")
 
 ## Compilation settings (the DEFS variable of the mk.<arch>-<opsys> files) ##
 
-# the language standard for the runtime's C code.  The runtime is written in
-# C99 with GNU extensions (the makefiles used -std=gnu99), and newer compilers
-# default to C23, which breaks the code.  A compile feature cannot express
-# this, since it only specifies a minimum standard (which C23 satisfies), so
-# we pass the flag.
+# the language standard for the runtime's C code, which requires C99.  (The
+# makefiles used -std=gnu99, but the code also compiles as C23, which is the
+# default of newer compilers.)
 #
 add_library(smlnj-runtime-c-standard INTERFACE)
-target_compile_options(smlnj-runtime-c-standard INTERFACE
-  $<$<COMPILE_LANGUAGE:C>:-std=gnu99>)
+target_compile_features(smlnj-runtime-c-standard INTERFACE c_std_99)
 
 add_library(smlnj-runtime-defs INTERFACE)
 target_link_libraries(smlnj-runtime-defs INTERFACE smlnj-runtime-c-standard)

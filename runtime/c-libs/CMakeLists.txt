@@ -16,11 +16,26 @@ add_library(smlnj-clib-common INTERFACE)
 target_include_directories(smlnj-clib-common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(smlnj-clib-common INTERFACE smlnj-runtime-common smlnj-gc)
 
-# libm is a separate library on most Unix systems, but not on macOS
+# smlnj_gen_posix_names(<prefix> <output>)
 #
-if (UNIX AND NOT APPLE)
-  set(SMLNJ_NEED_LIBM ON)
-endif()
+# generate the table of POSIX names with the given prefix (_SC_ or _PC_)
+# into <output> in the calling directory's binary directory.  The script
+# appends to its output, so we remove any old copy first.
+#
+function(smlnj_gen_posix_names prefix output)
+  set(out ${CMAKE_CURRENT_BINARY_DIR}/${output})
+  add_custom_command(
+    OUTPUT ${out}
+    COMMAND ${CMAKE_COMMAND} -E rm -f ${out}
+    COMMAND ${CMAKE_COMMAND} -E env
+      "VERSION=${SMLNJ_RUNTIME_VERSION}"
+      "CPP=${CMAKE_C_COMPILER} -E"
+      /bin/sh ${SMLNJ_RUNTIME_SOURCE_DIR}/config/gen-posix-names.sh ${prefix} ${output}
+    DEPENDS ${SMLNJ_RUNTIME_SOURCE_DIR}/config/gen-posix-names.sh
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Generating ${output}"
+    VERBATIM)
+endfunction()
 
 # the order of these libraries matches the link order of runtime/objs/makefile
 #

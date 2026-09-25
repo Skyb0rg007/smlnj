@@ -16,6 +16,5 @@ add_library(smlnj-clib-smlnj-math STATIC
 )
 target_link_libraries(smlnj-clib-smlnj-math PRIVATE smlnj-clib-common)
 
-if (SMLNJ_NEED_LIBM)
-  target_link_libraries(smlnj-clib-smlnj-math PRIVATE m)
-endif()
+# libm is a separate library on most Unix systems, but not on macOS
+target_link_libraries(smlnj-clib-smlnj-math PRIVATE $<$<NOT:$<PLATFORM_ID:Darwin>>:m>)

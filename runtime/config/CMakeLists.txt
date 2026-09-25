@@ -70,24 +70,3 @@ set(SMLNJ_GENERATED_FILES
 add_custom_target(smlnj-runtime-generated DEPENDS ${SMLNJ_GENERATED_FILES})
 
 set(SMLNJ_RUNTIME_GENERATED_DIR ${gen_dir} PARENT_SCOPE)
-
-# smlnj_gen_posix_names(<prefix> <output>)
-#
-# generate the table of POSIX names with the given prefix (_SC_ or _PC_)
-# into <output> in the calling directory's binary directory.  The script
-# appends to its output, so we remove any old copy first.
-#
-function(smlnj_gen_posix_names prefix output)
-  set(out ${CMAKE_CURRENT_BINARY_DIR}/${output})
-  add_custom_command(
-    OUTPUT ${out}
-    COMMAND ${CMAKE_COMMAND} -E rm -f ${out}
-    COMMAND ${CMAKE_COMMAND} -E env
-      "VERSION=${SMLNJ_RUNTIME_VERSION}"
-      "CPP=${CMAKE_C_COMPILER} -E"
-      /bin/sh ${SMLNJ_RUNTIME_SOURCE_DIR}/config/gen-posix-names.sh ${prefix} ${output}
-    DEPENDS ${SMLNJ_RUNTIME_SOURCE_DIR}/config/gen-posix-names.sh
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Generating ${output}"
-    VERBATIM)
-endfunction()

@@ -27,7 +27,8 @@
 #
 # A build type (e.g., -DCMAKE_BUILD_TYPE=Release) must be given when LLVM is
 # built as part of this project; LLVM refuses to configure without one.
-# build.sh specifies it.
+# build.sh specifies it.  The options of smlnj-llvm (e.g., LLVM_TARGETS_TO_BUILD,
+# which is "host" by default, and SMLNJ_CFGC_BUILD) can be set directly.
 #
 
 cmake_minimum_required(VERSION 3.24.0)
@@ -57,10 +58,6 @@ include(GNUInstallDirs)
 
 ## Options ##
 
-set(SMLNJ_LLVM_TARGETS "host" CACHE STRING
-  "LLVM code-generation targets to build: \"host\", \"all\", or a list drawn from X86;AArch64")
-option(SMLNJ_BUILD_CFGC
-  "Build the cfgc tool (compiles CFG pickles; used to debug the code generator)" OFF)
 option(SMLNJ_LLVM_INSTALL
   "Install LLVM and the code-generation libraries and tools into the install prefix (heap2exec needs bin/llvm-config)"
   ON)
@@ -74,27 +71,11 @@ option(SMLNJ_SANITIZE_ADDRESS
 # the source archive for the pinned commit of smlnj-llvm.  Update both the
 # URL and the hash together when moving to a new commit.
 #
-set(SMLNJ_LLVM_COMMIT "b393ae2d86f26ee51a24e22edda24ab5dd79e07f")
+set(SMLNJ_LLVM_COMMIT "6143360c92985eb39c6d0201a34e9202fa52d01e")
 set(SMLNJ_LLVM_URL
   "https://github.com/Skyb0rg007/smlnj-llvm-21.1/archive/${SMLNJ_LLVM_COMMIT}.tar.gz")
 set(SMLNJ_LLVM_URL_HASH
-  "SHA256=9758697271f001294fee5a4183752841498d57d201a457344779e6f6db9e1df8")
-
-# translate SMLNJ_LLVM_TARGETS into the smlnj-llvm setting
-#
-if (SMLNJ_LLVM_TARGETS STREQUAL "host")
-  if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
-    set(LLVM_TARGETS_TO_BUILD X86)
-  elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64|ARM64)$")
-    set(LLVM_TARGETS_TO_BUILD AArch64)
-  else()
-    message(FATAL_ERROR "unsupported architecture ${CMAKE_SYSTEM_PROCESSOR}")
-  endif()
-else()
-  set(LLVM_TARGETS_TO_BUILD "${SMLNJ_LLVM_TARGETS}")
-endif()
-
-set(SMLNJ_CFGC_BUILD ${SMLNJ_BUILD_CFGC})
+  "SHA256=29d27079b2c6264aa05b846ebc4cf0edb4c0361aa366b80fa6ad951dddfd5085")
 
 include(FetchContent)
 FetchContent_Declare(smlnj-llvm
@@ -103,8 +84,9 @@ FetchContent_Declare(smlnj-llvm
   FIND_PACKAGE_ARGS CONFIG NO_CMAKE_INSTALL_PREFIX)
 FetchContent_MakeAvailable(smlnj-llvm)
 
-# report which copy of smlnj-llvm is used (the settings above only affect
-# a copy that is built as part of this project)
+# report which copy of smlnj-llvm is used (its options, such as
+# LLVM_TARGETS_TO_BUILD, only affect a copy that is built as part of this
+# project)
 #
 get_target_property(_smlnj_llvm_imported smlnj-llvm::CFGCodeGen IMPORTED)
 if (_smlnj_llvm_imported)
