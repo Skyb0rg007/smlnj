@@ -10,17 +10,27 @@
 # them before it builds the compiler and libraries from the boot files.
 # Building the rest of the system with CMake is future work.
 #
-# The dependency is fetched as a source archive of a specific commit of
-# https://github.com/Skyb0rg007/smlnj-llvm-21.1 (see SMLNJ_LLVM_URL below).
-# To use a local checkout of that repository instead (e.g., when working on
-# the code generator), set FETCHCONTENT_SOURCE_DIR_SMLNJ-LLVM to its path.
+# The dependency is made available with FetchContent, which first tries
+# find_package(smlnj-llvm CONFIG) and otherwise fetches a source archive of
+# a specific commit of https://github.com/Skyb0rg007/smlnj-llvm-21.1 (see
+# SMLNJ_LLVM_URL below).  This is controlled with the standard FetchContent
+# variables:
+#
+#   * To use an installed smlnj-llvm, make it findable (e.g., by adding its
+#     installation prefix to CMAKE_PREFIX_PATH).  The install prefix of this
+#     project is not searched, since it usually holds the copy of smlnj-llvm
+#     that an earlier build of this project installed.
+#   * To always build the pinned sources, set
+#     FETCHCONTENT_TRY_FIND_PACKAGE_MODE to NEVER (build.sh does this).
+#   * To use a local checkout of smlnj-llvm (e.g., when working on the code
+#     generator), set FETCHCONTENT_SOURCE_DIR_SMLNJ-LLVM to its path.
 #
 # A build type (e.g., -DCMAKE_BUILD_TYPE=Release) must be given when LLVM is
 # built as part of this project; LLVM refuses to configure without one.
 # build.sh specifies it.
 #
 
-cmake_minimum_required(VERSION 3.23.0)
+cmake_minimum_required(VERSION 3.24.0)
 
 # the numeric part of the version (e.g., "2026.3-beta" -> "2026.3")
 #
@@ -45,12 +55,6 @@ endif()
 
 include(GNUInstallDirs)
 
-# use the timestamps of the extracted files for downloaded archives
-#
-if (POLICY CMP0135)
-  cmake_policy(SET CMP0135 NEW)
-endif()
-
 ## Options ##
 
 set(SMLNJ_LLVM_TARGETS "host" CACHE STRING
@@ -58,11 +62,8 @@ set(SMLNJ_LLVM_TARGETS "host" CACHE STRING
 option(SMLNJ_BUILD_CFGC
   "Build the cfgc tool (compiles CFG pickles; used to debug the code generator)" OFF)
 option(SMLNJ_LLVM_INSTALL
-  "Install LLVM and the code-generation libraries and tools into the install prefix (the runtime makefiles need this)"
+  "Install LLVM and the code-generation libraries and tools into the install prefix (heap2exec needs bin/llvm-config)"
   ON)
-option(SMLNJ_LLVM_FIND_PACKAGE
-  "Use an installed smlnj-llvm package (found via find_package) instead of fetching and building it"
-  OFF)
 option(SMLNJ_BUILD_RUNTIME
   "Build the runtime system (turn off to only build the smlnj-llvm dependency)" ON)
 option(SMLNJ_SANITIZE_ADDRESS
@@ -95,16 +96,23 @@ endif()
 
 set(SMLNJ_CFGC_BUILD ${SMLNJ_BUILD_CFGC})
 
-if (SMLNJ_LLVM_FIND_PACKAGE)
-  find_package(smlnj-llvm CONFIG REQUIRED)
-  message(STATUS "Using installed smlnj-llvm ${SMLNJ_LLVM_VERSION} (targets: ${SMLNJ_LLVM_TARGETS})")
+include(FetchContent)
+FetchContent_Declare(smlnj-llvm
+  URL ${SMLNJ_LLVM_URL}
+  URL_HASH ${SMLNJ_LLVM_URL_HASH}
+  FIND_PACKAGE_ARGS CONFIG NO_CMAKE_INSTALL_PREFIX)
+FetchContent_MakeAvailable(smlnj-llvm)
+
+# report which copy of smlnj-llvm is used (the settings above only affect
+# a copy that is built as part of this project)
+#
+get_target_property(_smlnj_llvm_imported smlnj-llvm::CFGCodeGen IMPORTED)
+if (_smlnj_llvm_imported)
+  message(STATUS "Using installed smlnj-llvm from ${smlnj-llvm_DIR}")
 else()
-  include(FetchContent)
-  FetchContent_Declare(smlnj-llvm
-    URL ${SMLNJ_LLVM_URL}
-    URL_HASH ${SMLNJ_LLVM_URL_HASH})
-  FetchContent_MakeAvailable(smlnj-llvm)
+  message(STATUS "Building smlnj-llvm from ${smlnj-llvm_SOURCE_DIR}")
 endif()
+unset(_smlnj_llvm_imported)
 
 ## The runtime system ##
 

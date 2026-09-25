@@ -24,7 +24,7 @@ SMLNJ_ROOT="$(pwd)"
 CMAKE_BUILD_DIR="$SMLNJ_ROOT/build"
 
 # the minimum version of CMake that we require
-CMAKE_MIN_VERSION=3.23
+CMAKE_MIN_VERSION=3.24
 
 complain() {
   echo "$cmd: !!! $*"
@@ -190,8 +190,10 @@ build_runtime() {
       CMAKE_GENERATOR="Unix Makefiles"
     fi
   fi
+  # we always build the pinned version of smlnj-llvm, even if a copy is installed
   CMAKE_DEFS="\
     -DCMAKE_INSTALL_PREFIX=$INSTALLDIR \
+    -DFETCHCONTENT_TRY_FIND_PACKAGE_MODE=NEVER \
     -DCMAKE_BUILD_TYPE=$LLVM_BUILD_TYPE \
     -DSMLNJ_LLVM_TARGETS=$LLVM_TARGETS \
     -DSMLNJ_BUILD_CFGC=$BUILD_CFGC \

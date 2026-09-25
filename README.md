@@ -27,7 +27,7 @@ installed on your machine.[^1]
 * **C++17** -- You need a **C++** compiler, such as **clang** or **gcc**,
   that can handle **C++17**.
 
-* **CMake** -- You need Version 3.23 or later of [CMake](https://cmake.org).
+* **CMake** -- You need Version 3.24 or later of [CMake](https://cmake.org).
 
 * **Autoconf** -- Parts of the documentation and the **ASDL** tool require
   the GNU **autoconf** tool (version 2.71 or later).
