@@ -37,7 +37,7 @@ function(smlnj_gen_posix_names prefix output)
     VERBATIM)
 endfunction()
 
-# the order of these libraries matches the link order of runtime/objs/makefile
+# the C function libraries, in link order
 #
 set(SMLNJ_C_LIBRARIES
   posix-os

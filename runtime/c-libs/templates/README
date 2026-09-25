@@ -2,8 +2,9 @@ These are template files for the glue needed to put an ML callable
 library together.  See the "HOWTO-ADD-C-CODE" file in the "notes"
 directory for complete details.  The files are used as follows:
 
-  makefile		a makefile template; define the make variables LIBRARY
-			and OBJS.
+  CMakeLists.txt	a CMake template; replace the fields in <<>> and add
+			the library's directory to SMLNJ_C_LIBRARIES in
+			../CMakeLists.txt.
 
   cfun-proto-list.h	copy this file unchanged
 

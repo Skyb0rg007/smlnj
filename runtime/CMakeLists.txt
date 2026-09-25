@@ -3,8 +3,8 @@
 # COPYRIGHT (c) 2026 The Fellowship of SML/NJ (https://smlnj.org)
 # All rights reserved.
 #
-# This replaces the makefiles in runtime/objs (mk.<arch>-<opsys> and
-# makefile) for Unix systems.  It builds two programs:
+# This builds the runtime system for Unix systems (Linux, macOS, FreeBSD, and
+# Cygwin).  It builds two programs:
 #
 #   run.<arch>-<opsys>    -- the interactive runtime system, which loads
 #                            heap images (bin/.run/run.<arch>-<opsys>)
@@ -12,9 +12,9 @@
 #                            for stand-alone programs; it is linked with a
 #                            heap image by the heap2exec script
 #
-# The libraries are organized as in the makefiles: the C function libraries
-# (c-libs), the garbage collector and heap I/O (gc), and the memory system
-# (memory).  The kernel (kernel, mach-dep, and the top-level c-libs files)
+# The runtime is organized as a set of static libraries: the C function
+# libraries (c-libs), the garbage collector and heap I/O (gc), and the memory
+# system (memory).  The kernel (kernel, mach-dep, and the top-level c-libs files)
 # is an object library that is linked directly into both programs.
 #
 
@@ -51,16 +51,15 @@ endif()
 
 # the suffix used for the runtime programs and heap images (e.g., "amd64-linux")
 set(SMLNJ_ARCH_OPSYS ${arch}-${SMLNJ_OPSYS})
-# the "version" string that the makefiles passed to gen-posix-names.sh
+# the "version" string that gen-posix-names.sh uses to select the system
 set(SMLNJ_RUNTIME_VERSION v-${SMLNJ_ARCH_OPSYS})
 
 message(STATUS "SML/NJ runtime system: ${SMLNJ_ARCH_OPSYS}")
 
-## Compilation settings (the DEFS variable of the mk.<arch>-<opsys> files) ##
+## Compilation settings ##
 
-# the language standard for the runtime's C code, which requires C99.  (The
-# makefiles used -std=gnu99, but the code also compiles as C23, which is the
-# default of newer compilers.)
+# the language standard for the runtime's C code, which requires C99 (it
+# also compiles as C23, which is the default of newer compilers)
 #
 add_library(smlnj-runtime-c-standard INTERFACE)
 target_compile_features(smlnj-runtime-c-standard INTERFACE c_std_99)
@@ -88,8 +87,8 @@ if (NOT (SMLNJ_OPSYS STREQUAL "darwin" AND SMLNJ_ARCH STREQUAL "ARM64"))
   target_compile_definitions(smlnj-runtime-defs INTERFACE GNU_ASSEMBLER)
 endif()
 
-# check if the C compiler prefixes global symbols with an underscore (this
-# replaces the config/chk-global-names.sh script)
+# check if the C compiler prefixes global symbols with an underscore, which
+# the assembly code needs to know
 #
 check_c_source_compiles("
 #define STR2(x) #x
@@ -160,12 +159,13 @@ target_link_libraries(smlnj-kernel PUBLIC smlnj-runtime-common)
 
 ## The runtime programs ##
 
-# the libraries in link order (see ALL_LIBS in runtime/objs/makefile)
+# the libraries in link order: the C function libraries call the GC library,
+# which uses the memory library
 #
 set(RUNTIME_LIBS ${SMLNJ_C_LIBRARY_TARGETS} smlnj-gc smlnj-mem)
 
-# on Linux, the runtime is linked as a non-PIE executable (the makefiles
-# used -no-pie); elsewhere we use the platform's default.
+# on Linux, the runtime is linked as a non-PIE executable (-no-pie);
+# elsewhere we use the platform's default.
 #
 if (SMLNJ_OPSYS STREQUAL "linux")
   check_pie_supported()
@@ -184,11 +184,12 @@ set_target_properties(smlnj-run PROPERTIES OUTPUT_NAME run.${SMLNJ_ARCH_OPSYS})
 # The system libraries (libm, libdl, librt, ...) are NOT part of this object;
 # heap2exec links them (using `llvm-config --system-libs`) when it builds the
 # final executable.  A partial link can only include static libraries, which
-# many systems do not provide, and a static libm does not mix with a dynamic
-# libc (see the comment in runtime/objs/mk.amd64-linux).  LLVM declares its
-# system libraries as link dependencies of its libraries, so rather than
-# linking the library targets, we link the archives of their static-library
-# closure.
+# many systems do not provide.  Moreover, a static libm requires a static
+# libc (on Linux, libm depends on internal symbols of glibc), and a static
+# libc breaks functions that must be dynamically linked, such as getaddrinfo
+# (used by the sockets library).  LLVM declares its system libraries as link
+# dependencies of its libraries, so rather than linking the library targets,
+# we link the archives of their static-library closure.
 #
 
 # _smlnj_visit_static_libs(<item>)
