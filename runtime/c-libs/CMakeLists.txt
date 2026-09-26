@@ -59,12 +59,11 @@ set(SMLNJ_C_LIBRARIES
   codegen
   dl)
 
-set(targets)
+# the libraries of the runtime programs: the C function libraries, which
+# bring in the GC and memory libraries that they depend on
+#
+add_library(smlnj-runtime-libs INTERFACE)
 foreach(lib IN LISTS SMLNJ_C_LIBRARIES)
   add_subdirectory(${lib})
-  list(APPEND targets smlnj-clib-${lib})
+  target_link_libraries(smlnj-runtime-libs INTERFACE smlnj-clib-${lib})
 endforeach()
-
-# the list of library targets, for linking the runtime executables
-#
-set(SMLNJ_C_LIBRARY_TARGETS ${targets} PARENT_SCOPE)

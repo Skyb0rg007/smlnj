@@ -90,18 +90,9 @@ if (SMLNJ_SANITIZE_ADDRESS)
   target_link_options(smlnj-runtime-defs INTERFACE -fsanitize=address)
 endif()
 
-## Generated headers ##
+## Generated headers and the common include path ##
 
 add_subdirectory(config)
-
-# the include path and definitions that are shared by all of the runtime code
-#
-add_library(smlnj-runtime-common INTERFACE)
-target_include_directories(smlnj-runtime-common INTERFACE
-  ${SMLNJ_RUNTIME_GENERATED_DIR}
-  ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(smlnj-runtime-common INTERFACE smlnj-runtime-defs)
-add_dependencies(smlnj-runtime-common smlnj-runtime-generated)
 
 ## Libraries ##
 
@@ -144,15 +135,10 @@ target_link_libraries(smlnj-kernel PUBLIC smlnj-runtime-common)
 
 ## The runtime programs ##
 
-# the libraries in link order: the C function libraries call the GC library,
-# which uses the memory library
-#
-set(RUNTIME_LIBS ${SMLNJ_C_LIBRARY_TARGETS} smlnj-gc smlnj-mem)
-
 # the interactive runtime system
 #
 add_executable(smlnj-run kernel/main.c)
-target_link_libraries(smlnj-run PRIVATE smlnj-kernel ${RUNTIME_LIBS})
+target_link_libraries(smlnj-run PRIVATE smlnj-kernel smlnj-runtime-libs)
 set_target_properties(smlnj-run PROPERTIES OUTPUT_NAME run.${SMLNJ_ARCH_OPSYS})
 
 # the runtime system for stand-alone programs, which is a relocatable
@@ -173,7 +159,9 @@ set_target_properties(smlnj-run PROPERTIES OUTPUT_NAME run.${SMLNJ_ARCH_OPSYS})
 #
 # depth-first traversal of the link dependencies of <item>, recording the
 # static libraries in post order in the global property _SMLNJ_STATIC_LIBS.
-# Items that are not targets (system libraries and linker flags) are ignored.
+# The dependencies are visited in reverse, so that reversing the result keeps
+# them in their original order.  Items that are not targets (system libraries
+# and linker flags) are ignored.
 #
 function(_smlnj_visit_static_libs item)
   if (item MATCHES "^\\$<LINK_ONLY:(.+)>$")
@@ -193,6 +181,7 @@ function(_smlnj_visit_static_libs item)
   set_property(GLOBAL APPEND PROPERTY _SMLNJ_VISITED "${item}")
   get_target_property(deps "${item}" INTERFACE_LINK_LIBRARIES)
   if (deps)
+    list(REVERSE deps)
     foreach(dep IN LISTS deps)
       _smlnj_visit_static_libs("${dep}")
     endforeach()
@@ -206,8 +195,9 @@ endfunction()
 # smlnj_static_link_closure(<out-var> <library>...)
 #
 # set <out-var> to the static libraries that the given libraries depend on
-# (including themselves) in a valid link order.  The given libraries keep
-# their relative order.
+# (including themselves) in a valid link order.  Libraries keep the order in
+# which they are given and listed as dependencies, unless a dependency
+# requires otherwise.
 #
 function(smlnj_static_link_closure out)
   set_property(GLOBAL PROPERTY _SMLNJ_VISITED)
@@ -222,7 +212,7 @@ function(smlnj_static_link_closure out)
   set(${out} ${libs} PARENT_SCOPE)
 endfunction()
 
-smlnj_static_link_closure(runx_libs ${RUNTIME_LIBS})
+smlnj_static_link_closure(runx_libs smlnj-runtime-libs)
 set(runx_archives)
 set(runx_deps)
 foreach(lib IN LISTS runx_libs)

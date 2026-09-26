@@ -8,8 +8,9 @@
 # definitions as the runtime, and so they must be able to run on the build machine; i.e.,
 # cross compilation is not supported.
 #
-# The generated files are written to this directory's binary directory,
-# which is part of the include path of `smlnj-runtime-common`.
+# The generated files are written to this directory's binary directory.
+# This file also defines `smlnj-runtime-common`, the include path shared by
+# all of the runtime code, which includes the generated files.
 #
 
 set(gen_dir ${CMAKE_CURRENT_BINARY_DIR})
@@ -68,4 +69,13 @@ set(SMLNJ_GENERATED_FILES
 
 add_custom_target(smlnj-runtime-generated DEPENDS ${SMLNJ_GENERATED_FILES})
 
-set(SMLNJ_RUNTIME_GENERATED_DIR ${gen_dir} PARENT_SCOPE)
+# the include path and definitions that are shared by all of the runtime
+# code; its users are built after the generated files.  (The generator
+# programs cannot use this target, since they produce the generated files.)
+#
+add_library(smlnj-runtime-common INTERFACE)
+target_include_directories(smlnj-runtime-common INTERFACE
+  ${gen_dir}
+  ${SMLNJ_RUNTIME_SOURCE_DIR}/include)
+target_link_libraries(smlnj-runtime-common INTERFACE smlnj-runtime-defs)
+add_dependencies(smlnj-runtime-common smlnj-runtime-generated)
