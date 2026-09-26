@@ -20,8 +20,6 @@
 
 enable_language(ASM)
 
-include(CheckPIESupported)
-
 set(SMLNJ_RUNTIME_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 
@@ -151,14 +149,6 @@ target_link_libraries(smlnj-kernel PUBLIC smlnj-runtime-common)
 #
 set(RUNTIME_LIBS ${SMLNJ_C_LIBRARY_TARGETS} smlnj-gc smlnj-mem)
 
-# on Linux, the runtime is linked as a non-PIE executable (-no-pie);
-# elsewhere we use the platform's default.
-#
-if (SMLNJ_OPSYS STREQUAL "linux")
-  check_pie_supported()
-  set(link_as_pie OFF)
-endif()
-
 # the interactive runtime system
 #
 add_executable(smlnj-run kernel/main.c)
@@ -248,11 +238,6 @@ target_link_libraries(smlnj-runx PRIVATE smlnj-kernel ${runx_archives})
 add_dependencies(smlnj-runx ${runx_deps})
 target_link_options(smlnj-runx PRIVATE -r)
 set_target_properties(smlnj-runx PROPERTIES OUTPUT_NAME runx.${SMLNJ_ARCH_OPSYS})
-
-if (DEFINED link_as_pie)
-  set_target_properties(smlnj-run smlnj-runx PROPERTIES
-    POSITION_INDEPENDENT_CODE ${link_as_pie})
-endif()
 
 # the runtime programs are installed in bin/.run
 #
