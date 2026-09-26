@@ -20,7 +20,6 @@
 
 enable_language(ASM)
 
-include(CheckCSourceCompiles)
 include(CheckPIESupported)
 
 set(SMLNJ_RUNTIME_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -85,18 +84,6 @@ endif()
 #
 if (NOT (SMLNJ_OPSYS STREQUAL "darwin" AND SMLNJ_ARCH STREQUAL "ARM64"))
   target_compile_definitions(smlnj-runtime-defs INTERFACE GNU_ASSEMBLER)
-endif()
-
-# check if the C compiler prefixes global symbols with an underscore, which
-# the assembly code needs to know
-#
-check_c_source_compiles("
-#define STR2(x) #x
-#define STR(x) STR2(x)
-int main (void) { static char a[(sizeof(STR(__USER_LABEL_PREFIX__)) == 2) ? 1 : -1]; return a[0]; }
-" SMLNJ_GLOBALS_HAVE_UNDERSCORE)
-if (SMLNJ_GLOBALS_HAVE_UNDERSCORE)
-  target_compile_definitions(smlnj-runtime-defs INTERFACE GLOBALS_HAVE_UNDERSCORE)
 endif()
 
 if (SMLNJ_SANITIZE_ADDRESS)

@@ -23,7 +23,8 @@ SMLNJ_ROOT="$(pwd)"
 # the directory used by CMake to build the runtime system and its LLVM dependency
 CMAKE_BUILD_DIR="$SMLNJ_ROOT/build"
 
-# the minimum version of CMake that we require
+# the minimum version of CMake that we require (for error messages; the
+# CMake project checks the version)
 CMAKE_MIN_VERSION=3.24
 
 complain() {
@@ -128,21 +129,11 @@ else
 fi
 
 #
-# check that we have a recent enough version of CMake
+# check that CMake is installed (the CMake project checks its version)
 #
 check_cmake() {
   if ! command -v cmake >/dev/null 2>&1 ; then
     complain "Installation of SML/NJ requires CMake version $CMAKE_MIN_VERSION or later"
-  fi
-  CMAKE_VERSION="$(cmake --version | sed -n 's/^cmake version \([0-9][0-9.]*\).*/\1/p')"
-  # compare major.minor numerically
-  CMAKE_MAJOR=${CMAKE_VERSION%%.*}
-  CMAKE_MINOR=${CMAKE_VERSION#*.}; CMAKE_MINOR=${CMAKE_MINOR%%.*}
-  MIN_MAJOR=${CMAKE_MIN_VERSION%%.*}
-  MIN_MINOR=${CMAKE_MIN_VERSION#*.}
-  if [ "$CMAKE_MAJOR" -lt "$MIN_MAJOR" ] || \
-     { [ "$CMAKE_MAJOR" -eq "$MIN_MAJOR" ] && [ "$CMAKE_MINOR" -lt "$MIN_MINOR" ]; } ; then
-    complain "Installation of SML/NJ requires CMake version $CMAKE_MIN_VERSION or later (found $CMAKE_VERSION)"
   fi
 }
 

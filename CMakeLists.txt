@@ -61,8 +61,6 @@ include(GNUInstallDirs)
 option(SMLNJ_LLVM_INSTALL
   "Install LLVM and the code-generation libraries and tools into the install prefix (heap2exec needs bin/llvm-config)"
   ON)
-option(SMLNJ_BUILD_RUNTIME
-  "Build the runtime system (turn off to only build the smlnj-llvm dependency)" ON)
 option(SMLNJ_SANITIZE_ADDRESS
   "Compile the runtime system with the address sanitizer" OFF)
 
@@ -71,11 +69,11 @@ option(SMLNJ_SANITIZE_ADDRESS
 # the source archive for the pinned commit of smlnj-llvm.  Update both the
 # URL and the hash together when moving to a new commit.
 #
-set(SMLNJ_LLVM_COMMIT "75b6ef0b501d39b419a4742ae5abc00e15c2c6eb")
+set(SMLNJ_LLVM_COMMIT "03dd872624c821ced08304b945ac528b9b50ec9b")
 set(SMLNJ_LLVM_URL
   "https://github.com/Skyb0rg007/smlnj-llvm-21.1/archive/${SMLNJ_LLVM_COMMIT}.tar.gz")
 set(SMLNJ_LLVM_URL_HASH
-  "SHA256=d7e95096072a54afd1c11a1f1892b0fe280ebd456721f9bf3dba170da15d5c04")
+  "SHA256=cadda6cce3fe21700ea65d1a7dea2367e243f2a334be133e5a2595382024f508")
 
 include(FetchContent)
 FetchContent_Declare(smlnj-llvm
@@ -98,6 +96,4 @@ unset(_smlnj_llvm_imported)
 
 ## The runtime system ##
 
-if (SMLNJ_BUILD_RUNTIME)
-  add_subdirectory(runtime)
-endif()
+add_subdirectory(runtime)
