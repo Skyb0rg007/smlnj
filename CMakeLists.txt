@@ -71,11 +71,11 @@ option(SMLNJ_SANITIZE_ADDRESS
 # the source archive for the pinned commit of smlnj-llvm.  Update both the
 # URL and the hash together when moving to a new commit.
 #
-set(SMLNJ_LLVM_COMMIT "b6d572a672f4002f7833e6635bd41a9938554e0a")
+set(SMLNJ_LLVM_COMMIT "75b6ef0b501d39b419a4742ae5abc00e15c2c6eb")
 set(SMLNJ_LLVM_URL
   "https://github.com/Skyb0rg007/smlnj-llvm-21.1/archive/${SMLNJ_LLVM_COMMIT}.tar.gz")
 set(SMLNJ_LLVM_URL_HASH
-  "SHA256=e375fbcca9570ba099ab1a7457827c5b70a25b66439fb8ee6068e47f9a598a12")
+  "SHA256=d7e95096072a54afd1c11a1f1892b0fe280ebd456721f9bf3dba170da15d5c04")
 
 include(FetchContent)
 FetchContent_Declare(smlnj-llvm
