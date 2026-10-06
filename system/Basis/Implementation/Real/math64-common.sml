@@ -118,7 +118,11 @@ structure Math64Common : sig
 		in
 		  if I.<(k',0)
 		    then if I.<(k', I.-(~1022,54))
-		      then 0.0						(*3*)
+		    (* `x * 0.0` rather than `0.0`: on total underflow the result
+		     * keeps the sign of `x`, as IEEE 754 scalb requires.  `x` is
+		     * finite and non-zero here, so this cannot produce a NaN.
+		     *)
+		      then x * 0.0					(*3*)
 		      else scalb(x,I.+(k,54)) * two_to_the_minus_54	(*4*)
 		    else x * plusInfinity				(*5*)
 		end
