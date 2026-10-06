@@ -98,7 +98,10 @@ fun lookFctEnt(entEnv,entVar) =
       | M.ERRORent => M.bogusFctEntity
       | _ => bug "lookFctEnt"
 
-fun lookEP(entEnv,[]) = bug "lookEP.1"
+(* An empty entity path arises from earlier error recovery; return ERRORent
+ * rather than treating it as an internal-invariant violation, matching the
+ * ERRORent handling in the clauses below and in lookFctEnt. *)
+fun lookEP(entEnv,[]) = M.ERRORent
   | lookEP(entEnv,[v]) = look(entEnv,v)
   | lookEP(entEnv,ep as (v::rest)) =
      (case look(entEnv,v)
