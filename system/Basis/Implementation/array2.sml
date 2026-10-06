@@ -291,7 +291,8 @@ structure Array2 :> ARRAY2 =
 	  end
 
     fun modifyRM f {data, ncols, nrows} = A.modify f data
-    fun modifyCM f {data, ncols, nrows} = let
+    fun modifyCM f {ncols=0, ...} = ()
+      | modifyCM f {data, ncols, nrows} = let
 	  val delta = A.length data - 1
 	  fun modf (i, k) = if (i < nrows)
 		then (unsafeUpdate(data, k, f(unsafeSub(data, k))); modf(i+1, k+ncols))
@@ -320,7 +321,8 @@ structure Array2 :> ARRAY2 =
 	  end
 
     fun foldRM f init {data, ncols, nrows} = A.foldl f init data
-    fun foldCM f init {data, ncols, nrows} = let
+    fun foldCM f init {ncols=0, ...} = init
+      | foldCM f init {data, ncols, nrows} = let
 	  val delta = A.length data - 1
 	  fun foldf (i, k, accum) = if (i < nrows)
 		then foldf (i+1, k+ncols, f(unsafeSub(data, k), accum))
