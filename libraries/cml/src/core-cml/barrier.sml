@@ -57,8 +57,28 @@ structure Barrier :> BARRIER =
     fun return (RAISE exn) = raise exn
       | return (VALUE x) = x
 
+  (* release the threads that are waiting at a barrier and update the global
+   * state.  This function must be called from inside an atomic region and
+   * assumes that every enrolled thread is waiting (i.e., that
+   * !nWaiting = !nEnrolled).  It returns the new state (or the exception
+   * raised by the update function).
+   *)
+    fun release (BAR{state, update, nWaiting, waiting, ...}) = let
+	  val result = let
+		val x = update(!state)
+		in
+		  state := x;
+		  VALUE x
+		end handle exn => RAISE exn
+	  in
+	    List.app (wakeupThd result) (!waiting);
+	    nWaiting := 0;
+	    waiting := [];
+	    result
+	  end
+
   (* synchronize on a barrier *)
-    fun wait (ENROLL{bar=BAR{state, update, nEnrolled, nWaiting, waiting}, sts}) = (
+    fun wait (ENROLL{bar as BAR{nEnrolled, nWaiting, waiting, ...}, sts}) = (
 	  S.atomicBegin();
 	  case !sts
 	   of ENROLLED => (
@@ -66,17 +86,9 @@ structure Barrier :> BARRIER =
 		nWaiting := !nWaiting+1;
 		if (!nWaiting = !nEnrolled)
 		  then let (* all threads are at the barrier, so we can proceed *)
-		    val result = let
-			  val x = update(!state)
-			  in
-			    state := x;
-			    VALUE x
-			  end handle exn => RAISE exn
+		    val result = release bar
 		    in
                       sts := ENROLLED; (* reset the enrollment status for this thread *)
-		      List.app (wakeupThd result) (!waiting);
-		      nWaiting := 0;
-		      waiting := [];
 		      S.atomicEnd ();
 		      return result
 		    end
@@ -90,7 +102,7 @@ structure Barrier :> BARRIER =
 	  (* end case *))
 
   (* resign from an enrolled barrier *)
-    fun resign (ENROLL{bar=BAR{nEnrolled, ...}, sts}) = (
+    fun resign (ENROLL{bar as BAR{nEnrolled, nWaiting, ...}, sts}) = (
 	  S.atomicBegin();
 	  case !sts
 	   of RESIGNED => S.atomicEnd() (* ignore multiple resignations *)
@@ -98,6 +110,12 @@ structure Barrier :> BARRIER =
 	    | ENROLLED => (
                 sts := RESIGNED;
                 nEnrolled := !nEnrolled - 1;
+	      (* resigning may be what leaves the remaining enrolled threads all
+	       * waiting at the barrier.
+	       *)
+		if (!nEnrolled > 0) andalso (!nWaiting = !nEnrolled)
+		  then ignore (release bar)
+		  else ();
                 S.atomicEnd())
           (* end case *))
 
