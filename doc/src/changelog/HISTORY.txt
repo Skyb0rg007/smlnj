@@ -108,6 +108,22 @@ Here is an update to the entry
 == Version 2026.3; 2026-10-04
 
 //--------------------------------------------------------------------
+[2026-10-06]::
++
+Fixed a bug in the Version 3 literal-lifting pass that could give a
+compilation unit the wrong floating-point constants.  `LitEnv.insertReal`
+numbers each real literal in the order it is first encountered and
+`slotForValue` uses that number as the literal's slot in the top-level
+literal record, but `getLiterals` returned the reals in hash-table order,
+which is the order they are emitted into that record.  Whenever the two
+orders differed, every real literal was read out of a different real's
+slot.  This affected any unit whose real literals hashed into a different
+order than they were seen in -- `Math64Common`, for instance, so that
+`Math.exp`, `Math.ln`, `Math.cosh` and friends returned nonsense.
++
+owner:github.com/Skyb0rg007[Skye Soss]
+
+//--------------------------------------------------------------------
 [2026-10-04]::
 +
 The build script sets `SMLNJ_HOME` to the installation being built so that

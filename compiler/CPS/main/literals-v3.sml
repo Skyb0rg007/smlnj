@@ -413,7 +413,19 @@ structure Literals : LITERALS =
 
         fun getLiterals (LE{lits, reals, ...}) = {
                 usedLits = List.filter litIsUsed (LTbl.listItems lits),
-                realLits = RTbl.listKeys reals
+              (* NOTE: `insertReal` assigns a real literal its index when the
+               * literal is first seen, and `lookupReal` returns that index;
+               * `slotForValue` uses it to address the real in the top-level
+               * literal record.  The list returned here fixes the order in
+               * which the reals are *emitted* into that record, so it has to
+               * be in index order.  `RTbl.listKeys` returns hash order, so
+               * whenever the two disagreed, every real was read out of some
+               * other real's slot.
+               *)
+                realLits = List.map #1
+                  (ListMergeSort.sort
+                    (fn ((_, i : int), (_, j : int)) => i > j)
+                    (RTbl.listItemsi reals))
               }
 
 	fun boundVars (LE{vMap, ...}) =
