@@ -152,7 +152,13 @@ post_re(env)
       | "*" => (RE.mkClosure)
       | "+" => (fn re => RE.mkAtLeast (re, 1))
       | "{" INT "}" => (fn re => RE.mkRep (re, INT, INT))
-      | "{" INT "," INT "}" => (fn re => RE.mkRep (re, INT1, INT2))
+      | "{" INT "," INT "}" => (fn re =>
+	  if INT1 <= INT2 then
+	    RE.mkRep (re, INT1, INT2)
+	  else (errs := (FULL_SPAN, String.concat [
+	    "Error: malformed repetition: {",
+	    Int.toString INT1, ",", Int.toString INT2, "}."])::(!errs);
+	    re))
       | => (fn x => x)
       )
       => (SR prim_re)
