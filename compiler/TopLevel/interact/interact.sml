@@ -47,6 +47,7 @@ functor Interact(EvalLoop : EVALLOOP) : INTERACT =
                       case exn
                        of CompileError => compileError()
                         | ErrorMsg.Error => compileError()
+                        | CompileExn.Compile "syntax error" => compileError()
                         | EvalLoop.ExnDuringExecution CompileError => compileError()
                         | EvalLoop.ExnDuringExecution exn' =>
 (* FIXME: it would be useful to have a way to raise exn' without modifying its
