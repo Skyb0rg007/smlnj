@@ -60,31 +60,31 @@ structure BackTrackEngine : REGEXP_ENGINE =
            * MODIFICATION: walk returns a list of matches
            * (because we need to extract the longest match)
            *)
-          fun walk (S.Group e,cont,p,inits) = (case walk (e,[],p,inits)
-                 of [] => [(false,[],p,inits)]
-                  | ((b,matches,last,s)::ls) => let
-                      fun loop [] cLast 1 cCont cList = let
-                            val [(b,matches,last,s)] = cList
-                            val [(b',matches',last',s')] = cCont
-                            in
-                              [(b', (M.Match({pos=inits, len=last-p}, matches))::matches',last',s')]
-                            end
-                        | loop [] cLast n cCont cList = raise Error
-                        | loop ((b,matches,last,s)::es) cLen cNum cCont cList = let
-                            val v as (_,_,last',_) = longest (walk (S.Concat [], cont,last,s))
-                            in
-                              if (last' > cLen)
-                                then loop es last' 1 [v] [(b,matches,last,s)]
-                              else if (last' = cLen)
-                                 then loop es cLen (cNum+1) (v::cCont)
-                                               ((b,matches,last,s)::cList)
-                                 else loop es cLen cNum cCont cList
-                            end
+          fun walk (S.Group e,cont,p,inits) = let
+                (* for each successful match of `e`, match the continuation and
+                 * keep the longest overall match (the first one in case of a tie).
+                 *)
+                fun loop ([], best) = best
+                  | loop ((false,_,_,_)::es, best) = loop (es, best)
+                  | loop ((true,matches,last,s)::es, best) = let
+                      val (b',matches',last',s') = longest (walk (S.Concat [],cont,last,s))
+                      val isBetter = (case best
+                             of NONE => true
+                              | SOME(_,_,bestLast,_) => (last' > bestLast)
+                            (* end case *))
                       in
-                        loop ls last 1 [longest(walk (S.Concat [],cont,last,s))]
-                              [(b,matches,last,s)]
+                        if b' andalso isBetter
+                          then loop (es, SOME(true,
+                            (M.Match({pos=inits, len=last-p}, matches))::matches',
+                            last', s'))
+                          else loop (es, best)
                       end
-                (* end case *))
+                in
+                  case loop (walk (e,[],p,inits), NONE)
+                   of SOME v => [v]
+                    | NONE => [(false,[],p,inits)]
+                  (* end case *)
+                end
             | walk (S.Alt [],[],p,inits) = [(true,[],p,inits)]
             | walk (S.Alt [], (c::cs),p,inits) = walk (c,cs,p,inits)
             | walk (S.Alt l, cont,p,inits) = let
