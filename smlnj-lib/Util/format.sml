@@ -281,6 +281,8 @@ structure Format : FORMAT =
 			else if Real.==(Real.posInf, r)
 			  then doRealSign false ^ "inf"
 			  else "nan"
+		    | (RealField _, LREAL r) =>
+			doField (flags, wid, ty, REAL(Real.fromLarge IEEEReal.TO_NEAREST r))
 		    | (_, LEFT(w, arg)) =>
 			padRight (doField (flags, wid, ty, arg), w)
 		    | (_, RIGHT(w, arg)) =>
