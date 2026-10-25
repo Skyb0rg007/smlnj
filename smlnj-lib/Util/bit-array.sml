@@ -56,14 +56,18 @@ structure BitArray :> BIT_ARRAY =
 		handle Overflow => Word8Array.maxLen (* would valOf Int.maxInt be better? *)
 
           fun array (0, init) = BA{nbits=0,bits=W8A.array(0, 0w0)}
-            | array (len, false) = BA{nbits=len,bits=W8A.array(sizeOf len, 0w0)}
-            | array (len, true) = let
-                val sz = sizeOf len
-                val bits = W8A.array (sz, 0wxff)
-                in
-                  case len mod 8 of 0 => () | idx => W8A.update(bits,sz-1,lobits idx);
-                  BA{nbits = len, bits = bits}
-                end
+            | array (len, false) = if (len < 0)
+                then raise Size
+                else BA{nbits=len,bits=W8A.array(sizeOf len, 0w0)}
+            | array (len, true) = if (len < 0)
+                then raise Size
+                else let
+                  val sz = sizeOf len
+                  val bits = W8A.array (sz, 0wxff)
+                  in
+                    case len mod 8 of 0 => () | idx => W8A.update(bits,sz-1,lobits idx);
+                    BA{nbits = len, bits = bits}
+                  end
 
           val char0 = Byte.charToByte #"0"
           val char9 = Byte.charToByte #"9"
