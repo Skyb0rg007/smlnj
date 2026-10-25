@@ -288,11 +288,13 @@ structure ContractPrim : sig
                         (* TESTU(n,p) o COPY(m,n) ==> TESTU(m, p) if (p <= m) *)
                         else Arith(P.TESTU{from=m, to=p}, [u])
                   | PUREinfo(P.EXTEND{from=m, ...}, [u]) =>
-                      if (p >= m)
-                        (* TESTU(n,p) o EXTEND(m,n) ==> EXTEND(m, p) if (p >= m) *)
-                        then Pure(P.EXTEND{from=m, to=p}, [u])
-                        (* TESTU(n,p) o EXTEND(m,n) ==> TESTU(m, p) if (p < m) *)
-                        else Arith(P.TESTU{from=m, to=p}, [u])
+                      if (p <= m)
+                        (* TESTU(n,p) o EXTEND(m,n) ==> TESTU(m, p) if (p <= m) *)
+                        then Arith(P.TESTU{from=m, to=p}, [u])
+                        (* otherwise, we still need to check that `u` is not
+                         * negative, which no single conversion does.
+                         *)
+                        else None
                   | _ => None
                 (* end case *))
             (***** TEST_INF *****
