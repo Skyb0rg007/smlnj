@@ -297,6 +297,21 @@ functor RealToBitsFn (FP : IEEE_FLOAT_PARAMS) : REAL_TO_BITS =
             mk
           end
 
+  (* round the extended-precision float `flt` to the mantissa of a subnormal number,
+   * i.e., to a multiple of the smallest subnormal 2^{minExp-(significant-1)}.  We
+   * round from `flt` (and not from its rounded significand) so that the result is
+   * rounded, not truncated, and only rounded once.
+   *)
+    fun subnormalFrac ({frac, exp} : float) = let
+          val shift = (minExp - (FP.significant - 1)) - exp
+          in
+            if shift <= 0
+              then IntInf.<<(frac, W.fromInt(~shift))
+            else if (IntInf.andb(frac, IntInf.<<(1, W.fromInt(shift-1))) = 0)
+              then IntInf.~>>(frac, W.fromInt shift)
+              else IntInf.~>>(frac, W.fromInt shift) + 1
+          end
+
   (* allocate a byte array and set the sign and exponent fields *)
     fun mkSignAndExp (isNeg, exp) = let
         (* allocate and initialize space for the result *)
@@ -385,8 +400,7 @@ functor RealToBitsFn (FP : IEEE_FLOAT_PARAMS) : REAL_TO_BITS =
                 in
                   if (exp < minExp)
                     then let
-                      val diff = Word.fromInt(minExp - exp)
-                      val frac = IntInf.~>>(frac, diff)
+                      val frac = subnormalFrac flt
                       in
                         if frac > 0
                           then IEEEReal.SUBNORMAL
@@ -421,8 +435,7 @@ functor RealToBitsFn (FP : IEEE_FLOAT_PARAMS) : REAL_TO_BITS =
                 in
                   if (exp < minExp)
                     then let
-                      val diff = Word.fromInt(minExp - exp)
-                      val frac = IntInf.~>>(frac, diff)
+                      val frac = subnormalFrac flt
                       in
                         if frac > 0
                           then (packSpecial (isNeg, 0w0, frac), IEEEReal.SUBNORMAL)
