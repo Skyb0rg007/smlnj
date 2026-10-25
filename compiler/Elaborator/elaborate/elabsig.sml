@@ -160,6 +160,7 @@ fun pushDefs(elements,defs,error,mkStamp) =
 		  (error ("where type defn applied to definitional spec: " ^
 			  SP.toString spath);
  		   tspec)
+	       | T.ERRORtyc => tspec  (* erroneous spec, already reported *)
 	       | _ => bug "applyTycDef (1)")
 	  | applyTycDef _ = bug "applyTycDef (2)"
 	fun applyStrDefs(spec as STRspec{entVar,sign,def,slot},defs) =
