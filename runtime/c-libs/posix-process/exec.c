@@ -10,6 +10,7 @@
 #include "ml-c.h"
 #include "cfun-proto-list.h"
 #include <unistd.h>
+#include <errno.h>
 
 /* _ml_P_Process_exec : string * string list -> 'a
  *
@@ -23,13 +24,20 @@ ml_val_t _ml_P_Process_exec (ml_state_t *msp, ml_val_t arg)
     char            **argv;
     ml_val_t        p;
     char            **cp;
-    int             nArgs;
+    int             nArgs, sts_errno;
 
     for (nArgs = 0, p = arglst; p != LIST_nil; p = LIST_tl(p)) {
         nArgs++;
     }
 
-    cp = PTR_MLtoC(char *, ML_AllocRaw(msp, BYTES_TO_WORDS((nArgs + 1) * sizeof(char *))));
+  /* we allocate the argument vector with malloc, since allocating it in the
+   * heap might cause a GC, which would invalidate the ML values that we hold
+   * in C variables.
+   */
+    cp = (char **)MALLOC((nArgs + 1) * sizeof(char *));
+    if (cp == NIL(char **)) {
+	return RAISE_ERROR(msp, "no malloc memory");
+    }
     argv = cp;
     for (p = arglst;  p != LIST_nil;  p = LIST_tl(p)) {
         *cp++ = STR_MLtoC(LIST_hd(p));
@@ -37,6 +45,11 @@ ml_val_t _ml_P_Process_exec (ml_state_t *msp, ml_val_t arg)
     *cp++ = NIL(char *);  /* terminate the argv[] */
 
     sts = execv(STR_MLtoC(path), argv);
+
+    sts_errno = errno;	/* preserve errno across the FREE */
+    FREE (argv);
+    errno = sts_errno;
+
     CHK_RETURN (msp, sts)
 
 } /* end of _ml_P_Process_exec */
