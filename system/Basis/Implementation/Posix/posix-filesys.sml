@@ -255,9 +255,9 @@ structure POSIX_FileSys =
             uid = UID(#6 sr),
             gid = GID(#7 sr),
             size = #8 sr,
-            atime = Time.fromNanoseconds (Word64.toLargeInt (#9 sr)),
-            mtime = Time.fromNanoseconds (Word64.toLargeInt (#10 sr)),
-            ctime = Time.fromNanoseconds (Word64.toLargeInt (#11 sr))
+            atime = Time.fromNanoseconds (Word64.toLargeIntX (#9 sr)),
+            mtime = Time.fromNanoseconds (Word64.toLargeIntX (#10 sr)),
+            ctime = Time.fromNanoseconds (Word64.toLargeIntX (#11 sr))
           }
 
     val stat' : string -> statrep = cfun "stat"
