@@ -126,7 +126,7 @@ functor IntervalSetFn (D : INTERVAL_DOMAIN) : INTERVAL_SET =
 	    | join (l1, []) = l1
 	    | join ((a1, b1)::r1, (a2, b2)::r2) = (case D.compare(a1, a2)
 		 of LESS => (case D.compare(b1, b2)
-		       of LESS => if D.isSucc(b1, a2)
+		       of LESS => if D.isSucc(b1, a2) orelse (D.compare(b1, a2) <> LESS)
 			    then join(r1, (a1, b2)::r2)
 			    else (a1, b1) :: join(r1, (a2, b2)::r2)
 			| EQUAL => (a1, b1) :: join(r1, r2)
