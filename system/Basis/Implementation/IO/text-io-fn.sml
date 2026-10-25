@@ -225,9 +225,14 @@ functor TextIOFn (
 			  (* end case *))
 		      | TERMINATED => ([], ISTRM(buf, V.length data))
 		    (* end case *))
-	      val (data, strm) = inputList (buf, pos, n)
 	      in
-		(V.concat data, strm)
+		if (n < 0) orelse (n > V.maxLen)
+		  then raise Size
+		  else let
+		    val (data, strm) = inputList (buf, pos, n)
+		    in
+		      (V.concat data, strm)
+		    end
 	      end
 
 	fun inputAll (strm as ISTRM(buf, _)) = let
