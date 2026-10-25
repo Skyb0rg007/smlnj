@@ -63,8 +63,7 @@ fun boundTyvarName k =
     let val a = Char.ord #"a"
      in if k < 26
 	then String.str(Char.chr(a+k))
-	else implode[Char.chr(Int.div(k,26) + a),
-                     Char.chr(Int.mod(k,26) + a)]
+	else boundTyvarName(Int.div(k,26)) ^ String.str(Char.chr(Int.mod(k,26) + a))
     end
 
 (* metaTyvarName' : int -> string *)
@@ -72,8 +71,7 @@ fun metaTyvarName' k =
     let val a = Char.ord #"Z" (* use reverse order for meta vars *)
      in if k < 26
 	then String.str(Char.chr(a - k))
-	else implode[Char.chr(a - (Int.div(k,26))),
-                     Char.chr(a - (Int.mod(k,26)))]
+	else metaTyvarName'(Int.div(k,26)) ^ String.str(Char.chr(a - (Int.mod(k,26))))
     end
 
 fun typeFormals n =
