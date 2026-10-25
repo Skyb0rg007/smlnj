@@ -22,11 +22,15 @@
 
 structure FRepToString : sig
 
-    (* for implementing Real.fmt *)
-    val fmt : StringCvt.realfmt -> FloatRep.float_rep -> string
+    (* for implementing Real.fmt; the argument is the shortest representation
+     * of the number paired with a function for computing its exact representation,
+     * which is needed to correctly round halfway cases.
+     *)
+    val fmt : StringCvt.realfmt
+          -> FloatRep.float_rep * (unit -> FloatRep.float_rep) -> string
 
     (* for implementing Real.toString *)
-    val toString : FloatRep.float_rep -> string
+    val toString : FloatRep.float_rep * (unit -> FloatRep.float_rep) -> string
 
     (* for implementing IEEEReal.toString *)
     val toExactString : FloatRep.float_rep -> string
@@ -83,7 +87,20 @@ structure FRepToString : sig
     fun addSign (false, frags) = frags
       | addSign (true, frags) = "~" :: frags
 
-    (* `roundAndNormalize (ds, m)` rounds the normalized sequence of digits `ds` to `m`
+    (* raised when rounding a shortest representation whose discarded digits
+     * are exactly "5".  The shortest representation does not tell us which
+     * way to round in this case, so we have to use the exact representation.
+     *)
+    exception Tie
+
+    (* in the halfway case of rounding the exact representation, we round
+     * to even; `ds` are the retained digits in reverse order.
+     *)
+    fun roundDownTie (true, []) = true
+      | roundDownTie (true, d::_) = (d mod 2 = 0)
+      | roundDownTie (false, _) = raise Tie
+
+    (* `roundAndNormalize (exact, ds, m)` rounds the normalized sequence of digits `ds` to `m`
      * digits and returns the triple `(co, ds', nz)`, where
      *
      *    - `ds` is a normalized sequence of `n` digits
@@ -92,8 +109,10 @@ structure FRepToString : sig
      *    - `ds'` is the normalized result that has `m - nz` digits
      *    - `nz` is the number of trailing zeros removed from the result of
      *      rounding.
+     *
+     * The flag `exact` is true when `ds` is the exact representation.
      *)
-    fun roundAndNormalize (digits, m) = let
+    fun roundAndNormalize (exact, digits, m) = let
           (* given the list of digits in reverse order (lsd first), trim the zeros.
            * we return the remaining digits in msd first order with the number of
            * trimmed zeros.
@@ -107,7 +126,7 @@ structure FRepToString : sig
                   then trimTrailingZeros (ds, 0)
                 else if (d > 5)
                   then roundWithCarry (true, ds, [], 0)
-                else if null dr
+                else if null dr andalso roundDownTie (exact, ds)
                   then trimTrailingZeros (ds, 0)  (* round down *)
                   else roundWithCarry (true, ds, [], 0)
             | trim (m, d::dr, ds) = trim (m-1, dr, d::ds)
@@ -127,7 +146,7 @@ structure FRepToString : sig
             trim (m, digits, [])
           end
 
-    (* `round (ds, m)` rounds the normalized sequence of digits `ds` to `m`
+    (* `round (exact, ds, m)` rounds the normalized sequence of digits `ds` to `m`
      * digits and returns the pair `(co, ds')`, where
      *
      *    - `ds` is a normalized sequence of `n` digits
@@ -138,14 +157,14 @@ structure FRepToString : sig
      * Note that unlike `roundAndNormalize`, the result sequence `ds'` can
      * have trailing zeros.
      *)
-    fun round (digits, m) = let
+    fun round (exact, digits, m) = let
           fun trim (0, [], ds) = (false, List.rev ds)
             | trim (_, [], _) = raise Fail "impossible"
             | trim (0, d::dr, ds) = if (d < 5)
                   then (false, List.rev ds)
                 else if (d > 5)
                   then roundWithCarry (ds, [])
-                else if null dr
+                else if null dr andalso roundDownTie (exact, ds)
                   then (false, List.rev ds) (* round down *)
                   else roundWithCarry (ds, [])
             | trim (m, d::dr, ds) = trim (m-1, dr, d::ds)
@@ -164,7 +183,7 @@ structure FRepToString : sig
     (* convert to scientific notation: "[~]?[0-9].[0-9]+(E[~]?[0-9]+)?", where `prec`
      * specifies the digits to the right of the decimal point.
      *)
-    fun toSci prec (sign, nDigits, digits, exp) = let
+    fun toSci exact prec (sign, nDigits, digits, exp) = let
           (* adjust exponent for "dddd." => "d.ddd" conversion *)
           val nFracDigits = Int.max(0, nDigits - 1)
           val exp = exp + nFracDigits
@@ -174,7 +193,7 @@ structure FRepToString : sig
               | (_, []) => if sign
                   then String.concat["~0.", zeros prec, "E0"]
                   else String.concat["0.", zeros prec, "E0"]
-              | (0, _) => (case roundAndNormalize (digits, 1)
+              | (0, _) => (case roundAndNormalize (exact, digits, 1)
                    of (false, digits, nz) => let
                         val frags = [Int.toString exp]
                         val frags = if (nz > 0)
@@ -195,7 +214,7 @@ structure FRepToString : sig
                  *)
                 val (whole, nFracDigits, frac, exp) = if (nFracDigits <= prec)
                       then (d, nFracDigits, dr, exp)
-                      else (case round (digits, prec+1)
+                      else (case round (exact, digits, prec+1)
                          of (false, d::ds) => (d, prec, ds, exp)
                           | (true, ds) => (1, prec, List.take(ds, prec), exp+1)
                           | _ => raise Fail "impossible"
@@ -224,13 +243,13 @@ structure FRepToString : sig
     (* convert to fixed-point notation: "[~]?[0-9]+.[0-9]+?", where `prec` specifies
      * the number of digits to appear after the decimal point.
      *)
-    fun toFix prec (sign, 0, _, _) = (case (prec, sign)
+    fun toFix _ prec (sign, 0, _, _) = (case (prec, sign)
            of (0, false) => "0"
             | (0, true) => "~0"
             | (_, false) => "0." ^ zeros prec
             | (_, true) => "~0." ^ zeros prec
           (* end case *))
-      | toFix prec (sign, nDigits, digits, exp) =
+      | toFix exact prec (sign, nDigits, digits, exp) =
           if (exp >= 0)
             then let
               val frags = if prec > 0 then [".", zeros prec] else []
@@ -275,7 +294,7 @@ structure FRepToString : sig
                         (* (b) `lPos < 0 <= prec < rShift` *)
                         else let
                           val nSigDigits = nDigits - (rShift - prec)
-                          val (co, ds) = round (digits, nSigDigits)
+                          val (co, ds) = round (exact, digits, nSigDigits)
                           val (nSigDigits, digits) = if co
                                 then (nSigDigits + 1, 1::ds)
                                 else (nSigDigits, ds)
@@ -285,7 +304,7 @@ structure FRepToString : sig
                     else if (lPos = 0)
                       then if (prec < rShift)
                         then let
-                          val (co, ds) = round (digits, prec)
+                          val (co, ds) = round (exact, digits, prec)
                           in
                             if (prec = 0)
                               (* (c) `0 = lPos = prec < rShift` *)
@@ -308,7 +327,7 @@ structure FRepToString : sig
                         (* (g) `0 < lPos < prec < rShift` *)
                         then let
                           val nSigDigits = prec - lPos
-                          val (co, ds) = round (digits, nSigDigits)
+                          val (co, ds) = round (exact, digits, nSigDigits)
                           val (digits, lPos) = if co
                                 then (1 :: ds, lPos-1)
                                 else (ds, lPos)
@@ -326,7 +345,7 @@ structure FRepToString : sig
                     else if (lPos = prec)
                       (* (i) `0 < prec = lPos < rShift` *)
                       then let
-                        val (co, _) = round (digits, 0)
+                        val (co, _) = round (exact, digits, 0)
                         in
                           if co
                             then "0." :: prependZeros(prec-1, ["1"])
@@ -355,7 +374,7 @@ structure FRepToString : sig
             else n+5 (* covers max exponent for 128-bit floats *)
           end
 
-    fun toGen nSigDigits (sign, nDigits, digits, exp) = (
+    fun toGen exact nSigDigits (sign, nDigits, digits, exp) = (
           case (sign, digits)
            of (false, []) => "0"
             | (true, []) => "~0"
@@ -368,7 +387,7 @@ structure FRepToString : sig
                         (* adjust the exponent for the implicit right shift *)
                         val exp = exp + (nDigits - nSigDigits)
                         in
-                          case roundAndNormalize (digits, nSigDigits)
+                          case roundAndNormalize (exact, digits, nSigDigits)
                            of (false, ds, nz) => (nSigDigits-nz, ds, exp+nz)
                             | (true, ds, nz) => let
                                 val nSigDigits = nSigDigits - nz (* = length ds *)
@@ -453,17 +472,23 @@ structure FRepToString : sig
                 end
           (* end case *))
 
+    (* format using the shortest representation, unless rounding hits a
+     * halfway case, in which case we use the exact representation.
+     *)
+    fun withTie toS (frep, exact) =
+          wrapper (toS false) frep handle Tie => wrapper (toS true) (exact ())
+
     fun fmt mode = (case mode
-           of SCI NONE => wrapper(toSci 6)
-            | SCI(SOME p) => if (p < 0) then raise Size else wrapper(toSci p)
-            | FIX NONE => wrapper(toFix 6)
-            | FIX(SOME p) => if (p < 0) then raise Size else wrapper(toFix p)
-            | GEN NONE => wrapper(toGen 12)
-            | GEN(SOME p) => if (p < 1) then raise Size else wrapper(toGen p)
-            | EXACT => wrapper toExact
+           of SCI NONE => withTie (fn ex => toSci ex 6)
+            | SCI(SOME p) => if (p < 0) then raise Size else withTie (fn ex => toSci ex p)
+            | FIX NONE => withTie (fn ex => toFix ex 6)
+            | FIX(SOME p) => if (p < 0) then raise Size else withTie (fn ex => toFix ex p)
+            | GEN NONE => withTie (fn ex => toGen ex 12)
+            | GEN(SOME p) => if (p < 1) then raise Size else withTie (fn ex => toGen ex p)
+            | EXACT => fn (frep, _) => wrapper toExact frep
           (* end case *))
 
-    val toString = wrapper (toGen 12)
+    val toString = withTie (fn ex => toGen ex 12)
 
     val toExactString = wrapper toExact
 

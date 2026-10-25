@@ -290,10 +290,10 @@ structure Real64Imp : REAL =
     fun fmt mode = let
           val fmt' = FRepToString.fmt mode
           in
-            fn r => fmt' (Real64ToFRep.cvt r)
+            fn r => fmt' (Real64ToFRep.cvt r, fn () => Real64ToFRep.exact r)
           end
 
-    val toString = FRepToString.toString o Real64ToFRep.cvt
+    fun toString r = FRepToString.toString (Real64ToFRep.cvt r, fn () => Real64ToFRep.exact r)
 
     fun scan getc = let
           val scan' = StringToFRep.scan getc
