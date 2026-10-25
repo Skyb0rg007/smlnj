@@ -447,12 +447,16 @@ structure ContractPrim : sig
             | (P.PURE_ARITH{oper=P.ROTR, kind}, [NUM n, NUM m]) =>
                 Val(NUM{ival = CA.bRotateR(sizeOfKind kind, #ival n, #ival m), ty = #ty n})
             (***** PURE_NUMSUBSCRIPT *****)
-            | (P.PURE_NUMSUBSCRIPT{kind}, [STRING s, NUM i]) => let
-                val v = ord(String.sub(s, Int.fromLarge(#ival i)))
-                in
-                  (* the result is a tagged integer, which has the default size *)
-                  Val(tagInt v)
-                end
+            | (P.PURE_NUMSUBSCRIPT{kind}, [STRING s, NUM{ival, ...}]) =>
+                (* an out-of-bounds index (e.g., from Unsafe code) is left alone *)
+                if (0 <= ival) andalso (ival < IntInf.fromInt(size s))
+                  then let
+                    val v = ord(String.sub(s, IntInf.toInt ival))
+                    in
+                      (* the result is a tagged integer, which has the default size *)
+                      Val(tagInt v)
+                    end
+                  else None
             (***** COPY *****)
             | (P.COPY{from=n, to=p}, [v]) => if (n = p)
                 (* COPY(n, n) ==> IDENTITY *)
