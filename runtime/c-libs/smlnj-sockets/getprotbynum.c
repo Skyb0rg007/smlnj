@@ -24,8 +24,9 @@ ml_val_t _ml_NetDB_getprotbynum (ml_state_t *msp, ml_val_t arg)
     if (pentry == NIL(struct protoent *))
 	return OPTION_NONE;
     else {
-	name = ML_CString (msp, pentry->p_name);
+      /* allocate the alias list first, since it might cause a GC */
 	aliases = ML_CStringList (msp, pentry->p_aliases);
+	name = ML_CString (msp, pentry->p_name);
 	REC_ALLOC3 (msp, res, name, aliases, INT_CtoML(pentry->p_proto));
 	OPTION_SOME (msp, res, res);
 	return res;
