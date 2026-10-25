@@ -78,9 +78,13 @@ structure GenSML : sig
             S.VERBtop(List.map expand (V.File.getHeader()))
           end
 
+  (* the generated files, so that we can generate CM and/or MLB files *)
+    val genFiles : string list ref = ref []
+
   (* output SML declarations to a file *)
     fun output (src, outFile, dcls) = let
           val outS = TextIO.openOut outFile
+          val _ = genFiles := outFile :: !genFiles
 (* FIXME: output width is a command-line option! *)
           val ppStrm = TextIOPP.openOut {dst = outS, wid = Opt.lineWidth()}
           in
@@ -142,10 +146,9 @@ structure GenSML : sig
   (* generate the S-Expression pickler files *)
     val genSExpStr = genFile [Opt.SEXP] GenSExpPickle.gen
 
-  (* references to collect together the generated files and modules so that
+  (* references to collect together the generated modules so that
    * we can generate CM and/or MLB files
    *)
-    val genFiles : string list ref = ref []
     val genSigs : string list ref = ref []
     val genStructs : string list ref = ref []
 
@@ -169,11 +172,6 @@ structure GenSML : sig
             genStructs := List.foldr getStructs (! genStructs) modules
           end
 
-  (* keep track of the generated files *)
-    fun addFile filename = (
-          genFiles := filename :: !genFiles;
-          filename)
-
   (* generate SML code for the given list of modules using the "Sml" view *)
     fun gen {src, dir, stem, file=AST.File{modules, shared}} = let
           val basePath = OS.Path.joinDirFile{dir=dir, file=stem}
@@ -191,30 +189,30 @@ structure GenSML : sig
                   | _ => false
                 (* end case *))
           in
-            genTypes (src, addFile(smlFilename ""), modules);
+            genTypes (src, smlFilename "", modules);
             if noOutput then ()
             else (
               if anySharing
-                then genSharingContext (src, addFile(smlFilename "-sharing"), shared)
+                then genSharingContext (src, smlFilename "-sharing", shared)
                 else ();
               genPicklerSig (
                 src,
-                addFile(sigFilename "-pickle"),
+                sigFilename "-pickle",
                 anySharing,
                 modules);
               genMemoryStr (
                 src,
-                addFile(smlFilename "-memory-pickle"),
+                smlFilename "-memory-pickle",
                 anySharing,
                 modules);
               genFileStr (
                 src,
-                addFile(smlFilename "-file-pickle"),
+                smlFilename "-file-pickle",
                 anySharing,
                 modules);
               genSExpStr (
                 src,
-                addFile(smlFilename "-sexp-pickle"),
+                smlFilename "-sexp-pickle",
                 anySharing,
                 filterPrim modules))
           end
