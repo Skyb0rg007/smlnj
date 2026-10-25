@@ -459,7 +459,12 @@ structure ContractPrim : sig
                 (* COPY(n, n) ==> IDENTITY *)
                 then Val v
                 else (case v
-                   of NUM{ival, ...} => Val(mkNum(p, ival))
+                   of NUM{ival, ...} =>
+                        (* the argument is an n-bit word, but a constant that
+                         * came from an int (e.g., `Word.fromInt ~1`) may be
+                         * negative, so we must zero extend it.
+                         *)
+                        Val(mkNum(p, CA.toUnsigned(n, ival)))
                     | VAR x => (case #info(get x)
                          of PUREinfo(P.COPY{from=m, ...}, [u]) =>
                             (* COPY(n,p) o COPY(m,n) ==> COPY(m,p) *)
