@@ -515,11 +515,19 @@ structure ContractPrim : sig
                                 (* TRUNC(n,p) o COPY(m,n) ==> TRUNC(m,p) if (p < m) *)
                                 else Pure(P.TRUNC{from=m, to=p}, [u])
                           | PUREinfo(P.EXTEND{from=m, to=n}, arg) =>
-                              if (p >= m)
-                                (* TRUNC(n,p) o EXTEND(m,n) ==> EXTEND(m,p) if (p >= m) *)
-                                then Pure(P.EXTEND{from=m, to=p}, arg)
+                              if (p < m)
                                 (* TRUNC(n,p) o EXTEND(m,n) ==> TRUNC(m,p) if (p < m) *)
-                                else Pure(P.TRUNC{from=m, to=p}, arg)
+                                then Pure(P.TRUNC{from=m, to=p}, arg)
+                              else if (p >= Target.defaultIntSz)
+                                (* TRUNC(n,p) o EXTEND(m,n) ==> EXTEND(m,p) if (p >= m);
+                                 * but a small (i.e., less than the default int size)
+                                 * signed value is sign extended to the full width,
+                                 * and so is the result of an EXTEND to a small size
+                                 * (EXTEND(m,m) is the identity), which leaves garbage
+                                 * in the high bits of the word result.
+                                 *)
+                                then Pure(P.EXTEND{from=m, to=p}, arg)
+                                else None
                           | _ => None
                         (* end case *))
                     | _ => bug "bogus argument to TRUNC"
@@ -550,11 +558,16 @@ structure ContractPrim : sig
                       then mkCOPY(m, p, u)
                       (* TRUNC(∞,p) o COPY(m,∞) ==> TRUNC(m,p) when (m > p) *)
                       else Pure(P.TRUNC{from=m, to=p}, [u])
-                  | PUREinfo(P.EXTEND_INF m, [u, _]) => if (p >= m)
-                      (* TRUNC(∞,p) o EXTEND(m,∞) ==> EXTEND(m,p) when (p >= m) *)
-                      then Pure(P.EXTEND{from=m, to=p}, [u])
-                      (* TRUNC(∞,p) o EXTEND(m,∞) ==> TRUNC(m,p) when (m > p) *)
-                      else Pure(P.TRUNC{from=m, to=p}, [u])
+                  | PUREinfo(P.EXTEND_INF m, [u, _]) =>
+                      if (p < m)
+                        (* TRUNC(∞,p) o EXTEND(m,∞) ==> TRUNC(m,p) when (m > p) *)
+                        then Pure(P.TRUNC{from=m, to=p}, [u])
+                      else if (p >= Target.defaultIntSz)
+                        (* TRUNC(∞,p) o EXTEND(m,∞) ==> EXTEND(m,p) when (p >= m);
+                         * see the note for TRUNC o EXTEND above.
+                         *)
+                        then Pure(P.EXTEND{from=m, to=p}, [u])
+                        else None
                   | _ => None
                 (* end case *))
             (***** Other primops *****)
