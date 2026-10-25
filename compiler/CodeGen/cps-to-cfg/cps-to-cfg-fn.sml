@@ -100,6 +100,14 @@ C.NUMt{sz=sz}
     fun select (i, arg) = C.SELECT{idx = i, arg = arg}
     fun looker (oper, args) = C.LOOKER{oper = oper, args = args}
 
+  (* records with more than this many fields are allocated uninitialized and
+   * then filled in one field at a time.  The arguments of an `ALLOC` are all
+   * evaluated before any of them is stored, so a large record whose fields are
+   * loads (e.g., reloads from a spill record) would otherwise need a stack slot
+   * per field, which can overflow the fixed-size spill area.
+   *)
+    val maxAllocArgs = 256
+
   (* raw record with uniform fields *)
     fun rawRecord (desc, kind, n) = let
 	  val ty = {kind = kind, sz = 64}
@@ -209,7 +217,7 @@ C.NUMt{sz=sz}
 		      val dataDesc = D.makeDesc(len, D.tag_vec_data)
 		      val dataP = LV.mkLvar()
 		      in
-			allocRecord (dataDesc, flds, dataP,
+			allocUniformRecord (dataDesc, TP.INT, flds, dataP,
 			  C.ALLOC(record D.desc_polyvec, [var dataP, mlInt len], x,
 			    bindVarIn(x, k)))
 		      end
@@ -221,9 +229,9 @@ C.NUMt{sz=sz}
                       allocRawRecord (TP.INT, flds, x, k)
                   | RECORD(CPS.RK_MIXED rep, flds, x, k) =>
                       allocRecord (D.makeMixedDesc rep, flds, x, bindVarIn(x, k))
-		  | RECORD(_, flds, x, k) => allocRecord (
+		  | RECORD(_, flds, x, k) => allocUniformRecord (
 		      D.makeDesc (length flds, D.tag_record),
-		      flds, x, bindVarIn(x, k))
+		      TP.INT, flds, x, bindVarIn(x, k))
 (*
 		  | SELECT(i, v, x, ty as CPS.NUMt{sz, ...}, k) =>
 		      genCont (rawSelect(TP.INT, normSz sz, i, genV v), x, ty, k)
@@ -411,15 +419,34 @@ C.NUMt{sz=sz}
 		end
 	  and allocRecord (desc, fields, x, k) =
 		C.ALLOC(record desc, List.map getField fields, x, k)
+	(* allocate a record whose fields are all 64-bit values of the given kind;
+	 * a large record is allocated uninitialized and then initialized one field
+	 * at a time (see `maxAllocArgs`).
+	 *)
+	  and allocUniformRecord (desc, kind, fields, x, k) =
+		if (length fields <= maxAllocArgs)
+		  then (case kind
+		     of TP.INT => allocRecord (desc, fields, x, k)
+		      | _ => C.ALLOC(rawRecord (desc, kind, length fields),
+			  List.map getField fields, x, k)
+		    (* end case *))
+		  else let
+		    val len = length fields
+		    fun init (fld, (i, k)) = (i-1, C.SETTER(
+			  TP.RAW_UPDATE{kind=kind, sz=64},
+			  [var x, num(IntInf.fromInt(i-1)), getField fld],
+			  k))
+		    in
+		      C.ALLOC(
+			TP.RAW_ALLOC{desc = SOME desc, align = 8, len = 8 * len},
+			[], x,
+			#2 (List.foldr init (len, k) fields))
+		    end
 (* REAL32: FIXME *)
 	(* Allocate a record with raw machine-int-sized components *)
-	  and allocRawRecord (kind, fields, x, k) = let
-		val len = length fields
-		val desc = D.makeDesc(len, D.tag_raw)
-		val oper = rawRecord (desc, kind, len)
-		in
-		  C.ALLOC(oper, List.map getField fields, x, bindVarIn(x, k))
-		end
+	  and allocRawRecord (kind, fields, x, k) =
+		allocUniformRecord (
+		  D.makeDesc(length fields, D.tag_raw), kind, fields, x, bindVarIn(x, k))
 	(***** SETTER *****)
 (* QUESTION: should we introduce a special primop for spill-record updates? *)
           and genRawUpdate (cty, r, NUM{ival, ...}, v, k) = (case cty
