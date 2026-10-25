@@ -120,7 +120,7 @@ struct
    * (2) length (!files) > 0
    * (3) charpos components of lines are strictly decreasing (ending in 1)
    * (4) length (!files) = number of SYNC elements in lines
-   * (5) last (initial) element of lines is the SYNC line: (1, SYNC(1,1,0))
+   * (5) last (initial) element of lines is the SYNC line: (1, SYNC(1,0,0))
    *)
 
   val nullRegion : region = (0,0)
@@ -133,10 +133,13 @@ struct
 
   (* newSourceMap: create a new sourcemap, given initial file name.
    * called only one place, in Source.newSource.  Initial position at the
-   * start of the first line is 1, initial line number is 1. *)
+   * start of the first line is 1, initial line number is 1.  Note that the
+   * lexers (which are generated in ml-lex compatibility mode) number the first
+   * character of their input 2, not 1, so we make position 1 column 0 to get
+   * correct (1-based) columns for the first line. *)
   fun newSourceMap (fileName: string) : sourcemap =
       {files = ref [fileName],
-       lines = ref [(1, SYNC(1,1,0))]}
+       lines = ref [(1, SYNC(1,0,0))]}
 
   (* resynch: implements a #line directive, changing the current filename, line and column.
    * initpos is the position of the initial character of the #line comment
