@@ -25,8 +25,9 @@ ml_val_t _util_NetDB_mknetent (ml_state_t *msp, struct netent *nentry)
       /* build the return result */
 	ml_val_t	name, aliases, af, net, res;
 
-	name = ML_CString(msp, nentry->n_name);
+      /* allocate the alias list first, since it might cause a GC */
 	aliases = ML_CStringList(msp, nentry->n_aliases);
+	name = ML_CString(msp, nentry->n_name);
 	af = ML_SysConst (msp, &_Sock_AddrFamily, nentry->n_addrtype);
 	WORD_ALLOC(msp, net, (Word_t)(nentry->n_net));
 	REC_ALLOC4 (msp, res, name, aliases, af, net);
