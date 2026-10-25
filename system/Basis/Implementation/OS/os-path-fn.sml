@@ -175,6 +175,7 @@ functor OS_PathFn (OSPathBase : sig
 	    | filterArcs (true, [P.Null]) = [""]
 	    | filterArcs (true, [P.Current]) = [""]
 	    | filterArcs (false, [P.Current]) = [currentArc]
+	    | filterArcs (false, [P.Null]) = [currentArc]
 	    | filterArcs (_, al) = List.map mkArc al
 	  val {isAbs, vol, arcs} = fromString p
 	  in
