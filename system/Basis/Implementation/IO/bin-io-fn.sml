@@ -538,6 +538,7 @@ functor BinIOFn (
 	      isClosedOut (strm, "filePosOut"); pos)
 	fun setPosOut (OUTP{pos, strm as OSTRM{writer, ...}}) = (
 	      isClosedOut (strm, "setPosOut");
+	      flushBuffer (strm, "setPosOut");
 	      case writer
 	       of PIO.WR{setPos=SOME f, ...} => (
 		    (f pos; strm)
