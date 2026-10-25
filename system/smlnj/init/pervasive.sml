@@ -178,7 +178,7 @@ local
    * Note that because the real values only have 53-bits of precision (including
    * the leading `1`), these values are approximate.
    *)
-  val minInt63 : PrimTypes.word64 = 0wxc3c0000000000000   (* ~4611686018427387904 *)
+  val minInt63 : PrimTypes.word64 = 0wxc3d0000000000000   (* ~4611686018427387904 *)
   val maxInt63 : PrimTypes.word64 = 0wx43D0000000000000   (* +4611686018427387903 *)
   (* given an integer represented as a real, convert it to an int.
    * It the argument is infinte, the `Overflow` is raised; if it is
