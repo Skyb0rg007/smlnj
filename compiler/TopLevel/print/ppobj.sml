@@ -72,10 +72,10 @@ structure PPObj : PPOBJ =
      *)
     fun isUbxTy (T.VARty(ref (T.INSTANTIATED t))) = isUbxTy t
       | isUbxTy (T.CONty(tc as T.GENtyc _, [])) =
-          (Target.is64 andalso
-            (TU.eqTycon(tc, BT.int64Tycon) orelse TU.eqTycon(tc, BT.word64Tycon)))
-          orelse
-            (TU.eqTycon(tc, BT.int32Tycon) orelse TU.eqTycon(tc, BT.word32Tycon))
+          if Target.is64
+            (* on 64-bit targets, 32-bit integers are tagged, not boxed *)
+            then TU.eqTycon(tc, BT.int64Tycon) orelse TU.eqTycon(tc, BT.word64Tycon)
+            else TU.eqTycon(tc, BT.int32Tycon) orelse TU.eqTycon(tc, BT.word32Tycon)
       | isUbxTy _ = false
 
     fun decon (obj, {rep, name, domain}) = (case rep
