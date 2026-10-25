@@ -381,8 +381,31 @@ STATIC_INLINE void PushVector (State_t *stp, int len)
        * into the allocation space, we need to do a GC before creating the vector.
        */
         arena_t *ap = stp->msp->ml_heap->gen[0]->arena[RECORD_INDX];
-        Die ("VEC(%d) unimplemented", len);
-/* TODO */
+        Addr_t szb = WORD_SZB*(len + 1);
+        int gcLevel = 0;
+        if ((! isACTIVE(ap)) || (AVAIL_SPACE(ap) <= szb + stp->msp->ml_heap->allocSzB)) {
+            gcLevel = 1;
+        }
+        ap->reqSizeB += szb;
+        GC(stp, gcLevel);
+        ap->reqSizeB = 0;
+        ASSERT(ap->nextw == ap->sweep_nextw);
+        /* allocate and initialize the data object in the first generation */
+        *(ap->nextw++) = MAKE_DESC(len, DTAG_vec_data);
+        ml_val_t data = PTR_CtoML(ap->nextw);
+        ap->nextw += len;
+        ap->sweep_nextw = ap->nextw;
+        CNTR_INCR(&stp->msp->ml_heap->numAlloc1, szb);
+        int top = stp->tos - len;
+        for (int i = 0;  i < len;  ++i) {
+            int j = top + 1 + i;
+            ASSERT ((0 <= j) && (j <= stp->tos));
+            ASSERT ((stp->stk[j].kind == VK_TAGINT) || (stp->stk[j].kind == VK_OBJ));
+            PTR_MLtoC(ml_val_t, data)[i] = stp->stk[j].val.ml;
+        }
+        stp->tos -= len;
+        /* allocate the header (the GC left the allocation space empty) */
+        SEQHDR_ALLOC(stp->msp, res, DESC_polyvec, data, len);
     } else {
         CheckGC (stp, WORD_SZB * (len + 1 + 3));
         /* allocate and initialize the data object */
