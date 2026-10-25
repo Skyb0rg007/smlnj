@@ -137,7 +137,7 @@ structure ThompsonEngine : REGEXP_ENGINE =
                                     then NONE
                                     else let
                                       val out = ref final
-                                      fun mkSuffix 1 = reComp re
+                                      fun mkSuffix 1 = option re
                                         | mkSuffix i = let
                                             val f = reComp re
                                             val f' = mkSuffix(i-1)
