@@ -119,6 +119,16 @@ structure BackTrackEngine : REGEXP_ENGINE =
                 in
                   if (not b')
                     then [(false, [], p, inits)]
+                  else if (last' = p)
+                    (* `e` only matched the empty string, so further iterations
+                     * cannot make progress (and would loop forever).
+                     *)
+                    then let
+                      val (b'', matches'', last'', s'') =
+                            longest (walk (S.Concat [], cont, last', s'))
+                      in
+                        [(b'', matches'@matches'', last'', s'')]
+                      end
                     else let
                       val (b, matches, last, s) =
                             longest (walk (S.Interval (e,1,optMinus1 k), cont,last',s'))
