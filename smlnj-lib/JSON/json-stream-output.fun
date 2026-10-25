@@ -136,7 +136,16 @@ functor JSONStreamOutputFn (Out : TEXT_OUTPUT_STREAM) : JSON_STREAM_OUTPUT
 			in
 			  tr (i, c :: chrs)
 			end
-		      else tr(i, F.format "\\u%04x" [F.WORD wchr] :: chrs)
+		    else if (wchr <= 0wxffff)
+		      then tr(i, F.format "\\u%04x" [F.WORD wchr] :: chrs)
+		      else let
+			(* encode as a UTF-16 surrogate pair *)
+			val w = wchr - 0wx10000
+			val hi = 0wxd800 + Word.>>(w, 0w10)
+			val lo = 0wxdc00 + Word.andb(w, 0wx3ff)
+			in
+			  tr(i, F.format "\\u%04x\\u%04x" [F.WORD hi, F.WORD lo] :: chrs)
+			end
 		  | NONE => String.concat(List.rev chrs)
 		(* end case *))
 	  in
@@ -243,7 +252,9 @@ functor JSONStreamOutputFn (Out : TEXT_OUTPUT_STREAM) : JSON_STREAM_OUTPUT
                               in
                                 lp (i, sz)
                               end
-                            else lp(i, sz + 6) (* \uXXXX *)
+                          else if (wchr <= 0wxffff)
+                            then lp(i, sz + 6) (* \uXXXX *)
+                            else lp(i, sz + 12) (* \uXXXX\uXXXX *)
                         | NONE => sz
                       (* end case *))
                 in
