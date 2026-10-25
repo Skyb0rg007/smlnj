@@ -105,7 +105,6 @@ structure TDPInstrument :> TDP_INSTRUMENT = struct
 	      else (s, 0) :: l
 
 	fun getCoreVal s = CoreAccess.getVar senv [s]
-	fun getCoreCon s = CoreAccess.getCon senv [s]
 
 	val tdp_reserve = getCoreVal "tdp_reserve"
 	val tdp_register = getCoreVal "tdp_register"
@@ -113,7 +112,6 @@ structure TDPInstrument :> TDP_INSTRUMENT = struct
 	val tdp_push = getCoreVal "tdp_push"
 	val tdp_nopush = getCoreVal "tdp_nopush"
 	val tdp_enter = getCoreVal "tdp_enter"
-	val matchcon = getCoreCon "Match"
 
 	val tdp_register_var = tmpvar ("<tdp_register>", iiis_u_Ty)
 	val tdp_save_var = tmpvar ("<tdp_save>", u_u_u_Ty)
@@ -226,9 +224,28 @@ structure TDPInstrument :> TDP_INSTRUMENT = struct
 	    end
 	  | i_exp tail loc (A.HANDLEexp (e, (rl, t1, t2))) =
 	    let val restore = tmpvar ("tmprestore", u_u_Ty)
-		fun rule (r as A.RULE (p, e)) =
-		    if is_raise_exp e then r
-		    else A.RULE (p, A.SEQexp [AUexp restore, i_exp tail loc e])
+	      (* after match compilation, the handler is a single rule whose body
+	       * dispatches on the exception and re-raises the exceptions that are
+	       * not handled, so we push the restore down to the branches that do
+	       * not raise; otherwise an exception that merely passes through the
+	       * handler would lose the back-trace of where it came from.
+	       *)
+		fun body loc e =
+		    if is_raise_exp e then e
+		    else (case e
+			   of A.SWITCHexp (s, srules, default) =>
+				A.SWITCHexp (s, map (srule loc) srules,
+					     Option.map (body loc) default)
+			    | A.VSWITCHexp (s, ty, srules, default) =>
+				A.VSWITCHexp (s, ty, map (srule loc) srules,
+					      body loc default)
+			    | A.LETVexp (v, e1, e2) =>
+				A.LETVexp (v, i_exp false loc e1, body loc e2)
+			    | A.MARKexp (e', r) => A.MARKexp (body (#1 loc, r) e', r)
+			    | _ => A.SEQexp [AUexp restore, i_exp tail loc e]
+			  (* end case *))
+		and srule loc (A.SRULE (c, v, e)) = A.SRULE (c, v, body loc e)
+		fun rule (A.RULE (p, e)) = A.RULE (p, body loc e)
 	    in
 		LETexp (restore, saveexp,
 			A.HANDLEexp (i_exp false loc e, (map rule rl, t1, t2)))
@@ -237,6 +254,14 @@ structure TDPInstrument :> TDP_INSTRUMENT = struct
 	      A.RAISEexp (i_exp false loc e, t)
 	  | i_exp tail loc (A.CASEexp (e, (rules, lhsTy, rhsTy))) =
 	      A.CASEexp (i_exp false loc e, (map (i_rule tail loc) rules, lhsTy, rhsTy))
+	  | i_exp tail loc (A.SWITCHexp (e, srules, default)) =
+	      A.SWITCHexp (i_exp false loc e, map (i_srule tail loc) srules,
+			   Option.map (i_exp tail loc) default)
+	  | i_exp tail loc (A.VSWITCHexp (e, ty, srules, default)) =
+	      A.VSWITCHexp (i_exp false loc e, ty, map (i_srule tail loc) srules,
+			    i_exp tail loc default)
+	  | i_exp tail loc (A.LETVexp (v, e, b)) =
+	      A.LETVexp (v, i_exp false loc e, i_exp tail loc b)
 	  | i_exp tail loc (A.IFexp { test, thenCase, elseCase }) =
 	      A.IFexp { test = i_exp false loc test,
 			thenCase = i_exp tail loc thenCase,
@@ -249,20 +274,15 @@ structure TDPInstrument :> TDP_INSTRUMENT = struct
 	      A.WHILEexp { test = i_exp false loc test,
 			   expr = i_exp false loc expr }
 	  | i_exp tail loc (A.FNexp (rl, lhsTy, rhsTy)) =
+	    (* this code runs after match compilation, so the function has a
+	     * single rule with a variable pattern (which is the only form that
+	     * translate accepts); we just prefix its body with the enter call.
+	     *)
 	    let val enterexp = mkenter (mkDescr (loc, "FN"))
-		val arg = tmpvar ("fnvar", lhsTy)
-		val rl' = map (i_rule true loc) rl
-		val re = let val A.RULE (_, lst) = List.last rl
-			     val t = Reconstruct.expType lst
-			 in
-			     A.RAISEexp (A.CONexp (matchcon, []), rhsTy)
-			 end
+		fun rule (A.RULE (p, e)) =
+		      A.RULE (p, A.SEQexp [enterexp, i_exp true loc e])
 	    in
-		A.FNexp ([A.RULE (A.VARpat arg,
-				  A.SEQexp [enterexp,
-					    A.CASEexp (A.VARexp (ref arg, []), (rl',lhsTy,rhsTy))]),
-			  A.RULE (A.WILDpat, re)],
-			 lhsTy, rhsTy)
+		A.FNexp (map rule rl, lhsTy, rhsTy)
 	    end
 	  | i_exp tail loc (A.LETexp (d, e)) =
 	      A.LETexp (i_dec loc d, i_exp tail loc e)
@@ -278,6 +298,7 @@ structure TDPInstrument :> TDP_INSTRUMENT = struct
 			     A.REALexp _ | A.STRINGexp _ | A.CHARexp _)) = e
 
 	and i_dec loc (A.VALdec l) = A.VALdec (map (i_vb loc) l)
+	  | i_dec loc (A.DOdec e) = A.DOdec (i_exp false loc e)
 	  | i_dec loc (A.VALRECdec l) = A.VALRECdec (map (i_rvb loc) l)
 	  | i_dec loc (A.ABSTYPEdec { abstycs, withtycs, body }) =
 	      A.ABSTYPEdec { abstycs = abstycs, withtycs = withtycs,
@@ -291,9 +312,11 @@ structure TDPInstrument :> TDP_INSTRUMENT = struct
 	  | i_dec (n, _) (A.MARKdec (d, r)) = A.MARKdec (i_dec (n, r) d, r)
 	  | i_dec _ (d as (A.TYPEdec _ | A.DATATYPEdec _ |
 			   A.SIGdec _ | A.FSIGdec _ | A.OPENdec _ |
-			   A.OVLDdec _ | A.FIXdec _)) = d
+			   A.OVLDdec _ | A.FIXdec _ | A.VARSELdec _)) = d
 
 	and i_rule tail loc (A.RULE (p, e)) = A.RULE (p, i_exp tail loc e)
+
+	and i_srule tail loc (A.SRULE (c, v, e)) = A.SRULE (c, v, i_exp tail loc e)
 
 	and i_vb (n, r) (vb as A.VB { pat, exp, typ, boundtvs, tyvars }) =
 	    let fun gv (A.VARpat v) = SOME v
