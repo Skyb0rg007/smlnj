@@ -855,6 +855,7 @@ let val class = ref ([this_slot] : slot list) (* the equivalence class *)
 				       SHARE{my_path=SP.SPATH rest,
 					     its_ancestor=its_ancestor,
 					     its_path=its_path,depth=depth})
+			      | ErrorStr => ()  (* error already reported *)
 			      | _ => bug "buildStrClass.7")
 			| _ => bug "buildStrClass.8"
 		 end
