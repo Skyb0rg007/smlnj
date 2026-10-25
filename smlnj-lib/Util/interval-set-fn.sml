@@ -249,15 +249,17 @@ functor IntervalSetFn (D : INTERVAL_DOMAIN) : INTERVAL_SET =
 	 * the predicate to the list l.
 	 *)
 	  fun filterInt ((a, b), l) = let
-		fun lp (start, item, last, l) = let
-		      val next = D.succ item
-		      in
-			if pred next
-			  then if (D.compare(next, last) = EQUAL)
-			    then (start, next)::l
-			    else lp(start, next, last, l)
-			  else scan(D.succ next, last, (start, item)::l)
-		      end
+		fun lp (start, item, last, l) = if (D.compare(item, last) = EQUAL)
+		      then (start, item)::l
+		      else let
+			val next = D.succ item
+			in
+			  if pred next
+			    then lp(start, next, last, l)
+			  else if (D.compare(next, last) = EQUAL)
+			    then (start, item)::l
+			    else scan(D.succ next, last, (start, item)::l)
+			end
 		and scan (next, last, l) = if pred next
 		      then lp (next, next, last, l)
 		      else if (D.compare(next, last) = EQUAL)
