@@ -73,7 +73,7 @@ functor mkMakeLrTable (structure IntGrammar : INTGRAMMAR
 		      say_error(sr,"shift/reduce conflict");
 		      if nonshift<>0 then
 			   (say "non-shiftable terminal used on the rhs of ";
-			   say_plural(start,"rule"); say "\n")
+			   say_plural(nonshift,"rule"); say "\n")
 		      else ();
 		      if start<>0 then (say "start symbol used on the rhs of ";
 					say_plural(start,"rule"); say "\n")
