@@ -85,6 +85,7 @@ fun mkRule (ss, (false, re), act) = ((ss, re), act)
 %nonassoc STAR
 
 %pos int
+%arg (errFn) : string * int -> unit
 %eop EOF
 %noshift EOF
 %start Start
@@ -182,7 +183,13 @@ Exp
 	| Exp REPS RCB
 		(RE.mkRep (Exp, REPS, REPS))
 	| Exp REPS COMMA REPS RCB
-		(RE.mkRep (Exp, REPS1, REPS2))
+		(if REPS1 <= REPS2
+		   then RE.mkRep (Exp, REPS1, REPS2)
+		   else (errFn (concat [
+		       "malformed repetition {", Int.toString REPS1, ",",
+		       Int.toString REPS2, "}"
+		     ], REPS1left);
+		     Exp))
 	| InExp
 		(InExp)
 
