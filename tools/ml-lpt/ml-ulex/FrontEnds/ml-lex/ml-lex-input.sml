@@ -25,9 +25,12 @@ structure MLLexInput : INPUT =
 	  fun parseErr (msg, line, _) = (
 		print(concat["** Syntax error [", fname, ":", Int.toString line, "]: ", msg, "\n"]);
 		anyErrors := true)
+	  fun semanticErr (msg, line) = (
+		print(concat["** Error [", fname, ":", Int.toString line, "]: ", msg, "\n"]);
+		anyErrors := true)
 	  val strm = TextIO.openIn fname
 	  val lexer = MLLexParser.makeLexer (fn n => TextIO.inputN (strm, n))
-	  val (spec, _) = MLLexParser.parse(15, lexer, parseErr, ())
+	  val (spec, _) = MLLexParser.parse(15, lexer, parseErr, semanticErr)
 	  in
 	    TextIO.closeIn strm;
 	    if !anyErrors then NONE else SOME spec
