@@ -1028,7 +1028,9 @@ fun elabSpec (spec, env, elements, slots, region) =
 		       loop(rest,paths))
 
             val sharespec = loop(pl,nil)
-         in (env,elements,[sharespec],[],slots,false)
+            (* all of the paths may have been rejected above *)
+            val tycShare = case sharespec of nil => nil | _ => [sharespec]
+         in (env,elements,tycShare,[],slots,false)
         end
 
     | IncludeSpec sigexp =>  (* param was "name" *)
