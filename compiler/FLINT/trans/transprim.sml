@@ -418,13 +418,16 @@ structure TransPrim : sig
 			      mkCOND (
 				mkApp2 (equal, y, zero),
 				mkRaise (divExn, lt_arg),
-                                mkCOND (
-                                  mkApp2 (equal, y, negOne),
-                                  (* we implement `x / ~1` as `~ x` to get Overflow
-                                   * when `x` in `minInt`
-                                   *)
-                                  PL.APP(negate, PL.SELECT(0, z)),
-				  PL.APP(oper, z)))))
+                                case nk
+                                 of PO.INT _ => mkCOND (
+                                      mkApp2 (equal, y, negOne),
+                                      (* we implement `x / ~1` as `~ x` to get Overflow
+                                       * when `x` in `minInt`
+                                       *)
+                                      PL.APP(negate, PL.SELECT(0, z)),
+                                      PL.APP(oper, z))
+                                  (* for words, an all-ones divisor is not ~1 *)
+                                  | _ => PL.APP(oper, z))))
 			end
 		   | NONE => (warn "no access to Div exception"; oper)
 		end
@@ -441,10 +444,13 @@ structure TransPrim : sig
 			      mkCOND (
 				mkApp2 (equal, y, zero),
 				mkRaise (divExn, lt_arg),
-                                mkCOND (
-                                  mkApp2 (equal, y, negOne),
-                                  zero,
-				  PL.APP(oper, z)))))
+                                case nk
+                                 of PO.INT _ => mkCOND (
+                                      mkApp2 (equal, y, negOne),
+                                      zero,
+                                      PL.APP(oper, z))
+                                  (* for words, an all-ones divisor is not ~1 *)
+                                  | _ => PL.APP(oper, z))))
 			end
 		   | _ => (warn "no access to Div exception"; oper)
 		end
