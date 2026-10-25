@@ -83,6 +83,7 @@ structure AwkSyntax : REGEXP_PARSER =
 		   of (_, []) => raise Error (* no digits *)
 		    | (cs, digits) => let
 			val SOME(n, _) = (Int.scan SC.DEC List.getItem digits)
+			      handle Overflow => raise Error
 			in
 			  (n, cs)
 			end
