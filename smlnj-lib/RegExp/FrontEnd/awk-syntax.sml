@@ -248,7 +248,15 @@ structure AwkSyntax : REGEXP_PARSER =
 		  (R.Char c, cs)
 		end
 	  in
-	    SOME(scanAlt([], cs)) handle Error => NONE
+	    let
+	    val (re, cs') = scanAlt([], cs)
+	    in
+	      case getc cs'
+	       of SOME(#")", _) => NONE (* unmatched ")" *)
+		| _ => SOME(re, cs')
+	      (* end case *)
+	    end
+	      handle Error => NONE
 	  end
 
 
