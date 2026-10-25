@@ -11,6 +11,7 @@
 #include "ml-values.h"
 #include "ml-objects.h"
 #include "ml-c.h"
+#include "gc.h"
 #include "cfun-proto-list.h"
 
 /* some OSs use int[] as the second argument to getgroups(), when gid_t
@@ -23,6 +24,9 @@ typedef gid_t gid;
 #endif
 
 
+/* the number of list elements allocated between checks for a GC */
+#define GRP_CHUNK_SZ	512
+
 /* mkList:
  *
  * Convert array of gid_t into a list of gid_t
@@ -31,10 +35,16 @@ PVT ml_val_t mkList (ml_state_t *msp, int ngrps, gid gidset[])
 {
     ml_val_t    p, w;
 
-/** NOTE: we should do something about possible GC!!! **/
-
     p = LIST_nil;
     while (ngrps-- > 0) {
+      /* make sure that there is space for the next chunk of the list: each
+       * element takes a boxed word (2 words) and a cons cell (3 words).
+       */
+	if (((ngrps+1) % GRP_CHUNK_SZ == 0) || (p == LIST_nil)) {
+	    if (NeedGC (msp, GRP_CHUNK_SZ * (5 * WORD_SZB))) {
+		InvokeGCWithRoots (msp, 0, &p, NIL(ml_val_t *));
+	    }
+	}
         WORD_ALLOC (msp, w, (Word_t)(gidset[ngrps]));
 	LIST_cons(msp, p, w, p);
     }
