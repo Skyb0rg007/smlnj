@@ -75,6 +75,9 @@ ml_val_t ML_CStringList (ml_state_t *msp, char **strs)
     for (j = 0;  j < i;  j++) {
         size_t len = strlen(strs[j]);
         Word_t nwords = BYTES_TO_WORDS(len + 1);
+        if (len > 0) {
+            nbytes += 3 * WORD_SZB; /* the string header */
+        }
         if (len > 0 && nwords <= SMALL_OBJ_SZW) {
             nbytes += WORD_SZB * (nwords + 1); /* +1 for the descriptor word */
         }
