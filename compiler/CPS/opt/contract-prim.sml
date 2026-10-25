@@ -260,11 +260,17 @@ structure ContractPrim : sig
                                 (* TEST(n,p) o COPY(m,n) ==> TESTU(m, p) if (p <= m) *)
                                 else Arith(P.TESTU{from=m, to=p}, [u])
                           | PUREinfo(P.EXTEND{from=m, ...}, [u]) =>
-                              if (p >= m)
-                                (* TEST(n,p) o EXTEND(m,n) ==> EXTEND(m, p) if (p >= m) *)
-                                then Pure(P.EXTEND{from=m, to=p}, [u])
+                              if (p < m)
                                 (* TEST(n,p) o EXTEND(m,n) ==> TEST(m, p) if (p < m) *)
-                                else Arith(P.TEST{from=m, to=p}, [u])
+                                then Arith(P.TEST{from=m, to=p}, [u])
+                              else if (p > m) orelse (p >= Target.defaultIntSz)
+                                (* TEST(n,p) o EXTEND(m,n) ==> EXTEND(m, p) if (p >= m);
+                                 * but EXTEND(m,m) is the identity, which does not
+                                 * sign extend a small (i.e., less than the default
+                                 * int size) word to the signed representation.
+                                 *)
+                                then Pure(P.EXTEND{from=m, to=p}, [u])
+                                else None
                           | _ => None
                         (* end case *))
                     | _ => bug "bogus argument to TEST"
@@ -308,11 +314,16 @@ structure ContractPrim : sig
                       then mkCOPY(m, p, u)
                       (* TEST(∞,p) o COPY(m,∞) ==> TESTU(m,p) when (p <= m) *)
                       else Arith(P.TESTU{from=m, to=p}, [u])
-                  | PUREinfo(P.EXTEND_INF m, u::_) => if (p >= m)
-                      (* TEST(∞,p) o EXTEND(m,∞) ==> EXTEND(m,p) when (p >= m) *)
-                      then Pure(P.EXTEND{from=m, to=p}, [u])
-                      (* TEST(∞,p) o EXTEND(m,∞) ==> TEST(m,p) when (p < m) *)
-                      else Arith(P.TEST{from=m, to=p}, [u])
+                  | PUREinfo(P.EXTEND_INF m, u::_) =>
+                      if (p < m)
+                        (* TEST(∞,p) o EXTEND(m,∞) ==> TEST(m,p) when (p < m) *)
+                        then Arith(P.TEST{from=m, to=p}, [u])
+                      else if (p > m) orelse (p >= Target.defaultIntSz)
+                        (* TEST(∞,p) o EXTEND(m,∞) ==> EXTEND(m,p) when (p >= m);
+                         * see the note for TEST o EXTEND above.
+                         *)
+                        then Pure(P.EXTEND{from=m, to=p}, [u])
+                        else None
                   | _ => None
                 (* end case *))
             | _ => None
