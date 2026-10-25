@@ -59,22 +59,37 @@ ml_val_t ML_CStringList (ml_state_t *msp, char **strs)
 {
     int         i, j;
     ml_val_t    p, s;
-    Word_t      nbytes;
+    Word_t      nbytes, bigSzB;
+    arena_t     *ap = msp->ml_heap->gen[0]->arena[STRING_INDX];
 
     for (i = 0;  strs[i] != NIL(char *);  i++)
         continue;
 
-    /* Make sure we have enough space to allocate the list */
+    /* Make sure we have enough space to allocate the list.  Large strings
+     * are allocated in the first generation's string arena; we must also
+     * reserve space for them here, since a GC triggered while allocating
+     * one of them would not preserve the partially built list.
+     */
     nbytes = i * (3 * WORD_SZB);
+    bigSzB = 0;
     for (j = 0;  j < i;  j++) {
         size_t len = strlen(strs[j]);
         Word_t nwords = BYTES_TO_WORDS(len + 1);
         if (len > 0 && nwords <= SMALL_OBJ_SZW) {
             nbytes += WORD_SZB * (nwords + 1); /* +1 for the descriptor word */
         }
+        else if (len > 0) {
+            bigSzB += WORD_SZB * (nwords + 1);
+        }
     }
     if (NeedGC (msp, nbytes)) {
         InvokeGC (msp, 0);
+    }
+    if ((bigSzB > 0)
+    && ((! isACTIVE(ap)) || (AVAIL_SPACE(ap) <= bigSzB+msp->ml_heap->allocSzB))) {
+        ap->reqSizeB += bigSzB;
+        InvokeGC (msp, 1);
+        ap->reqSizeB = 0;
     }
 
     p = LIST_nil;
