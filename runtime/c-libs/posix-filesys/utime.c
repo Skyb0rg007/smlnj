@@ -15,6 +15,24 @@
 
 /* FIXME: utimensat is the newest way to implement this mechanism */
 
+/* convert a nanosecond count to a struct timeval.  The count is the
+ * two's-complement encoding of a signed value (times before the epoch
+ * are negative), so we must use signed arithmetic and make sure that
+ * the microseconds field is non-negative.
+ */
+STATIC_INLINE void ns_to_timeval (Unsigned64_t ns, struct timeval *tv)
+{
+    Int64_t us = (Int64_t)ns / 1000;		/* convert to microseconds */
+    Int64_t usec = us % 1000000;
+
+    if (usec < 0) {
+	usec += 1000000;
+	us -= 1000000;
+    }
+    tv->tv_sec = us / 1000000;
+    tv->tv_usec = usec;
+}
+
 /* _ml_P_FileSys_utime : (string * Word64.word * Word64.word) -> unit
  *                        name     actime(ns)    modtime(ns)
  *
@@ -33,12 +51,8 @@ ml_val_t _ml_P_FileSys_utime (ml_state_t *msp, ml_val_t arg)
     }
     else {
         struct timeval	times[2];
-	Unsigned64_t us = actime / 1000;	/* convert to microseconds */
-	times[0].tv_sec = us / 1000000;
-	times[0].tv_usec = us % 1000000;
-	us = modtime / 1000;			/* convert to microseconds */
-	times[1].tv_usec = us % 1000000;
-	times[1].tv_sec = us / 1000000;
+	ns_to_timeval (actime, &times[0]);
+	ns_to_timeval (modtime, &times[1]);
 	sts = utimes (STR_MLtoC(path), times);
     }
 
