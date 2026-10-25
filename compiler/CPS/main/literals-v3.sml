@@ -460,7 +460,11 @@ structure Literals : LITERALS =
                  of C.RECORD(rk, fields, v, e) => let
                       val ul = List.map fieldToValue fields
                       in
+                        (* objects that are too large for the bytecode encoding
+                         * are left to be allocated by the program.
+                         *)
                         if List.all isConst ul
+                        andalso (List.length ul <= BC.maxObjLen)
                           then addRecord (rk, ul, v)
                           else useValues ul;
                         doExp e
