@@ -37,7 +37,7 @@ structure Format : FORMAT =
 		  in
 		    ( LargeWord.fmt SC.OCT maxP1,
 		      LargeWord.fmt SC.DEC maxP1,
-		      LargeWord.fmt SC.HEX maxP1
+		      String.map Char.toLower (LargeWord.fmt SC.HEX maxP1)
 		    )
 		  end
 	      | NONE => ("", "", "")
@@ -52,14 +52,14 @@ structure Format : FORMAT =
     fun intToStr MaxInt = maxInt10
       | intToStr (PosInt i) = LargeInt.toString i
     fun intToHex MaxInt = maxInt16
-      | intToHex (PosInt i) = LargeInt.fmt SC.HEX i
+      | intToHex (PosInt i) = String.map Char.toLower (LargeInt.fmt SC.HEX i)
     fun intToHeX i = String.map Char.toUpper (intToHex i)
     end (* local *)
 
   (* word to string conversions *)
     val wordToOctal = LargeWord.fmt SC.OCT
     val wordToStr = LargeWord.fmt SC.DEC
-    val wordToHex = LargeWord.fmt SC.HEX
+    fun wordToHex w = String.map Char.toLower (LargeWord.fmt SC.HEX w)
     fun wordToHeX i = String.map Char.toUpper (wordToHex i)
 
     fun compileFormat str = let
