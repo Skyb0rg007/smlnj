@@ -494,7 +494,11 @@ functor PPStreamFn (
   (**** USER FUNCTIONS ****)
     fun openStream d = let
 	  fun limit optInt = Option.getOpt(optInt, infinity)
-	  val width = limit(D.lineWidth d)
+	(* the width must be well below `infinity`, which is the size given to
+	 * tokens whose size is not known yet, since otherwise `advanceLeft`
+	 * never outputs such tokens (or anything queued after them).
+	 *)
+	  val width = Int.min(limit(D.lineWidth d), infinity div 2)
 	  val maxIndent = Int.min(limit(D.maxIndent d), width-1)
 	  val maxDepth = Int.max(limit(D.maxDepth d), 2)
 	  val strm = PP{
