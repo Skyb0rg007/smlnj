@@ -299,7 +299,7 @@ functor IntervalSetFn (D : INTERVAL_DOMAIN) : INTERVAL_SET =
 
     fun foldlInt f init (SET l) = List.foldl f init l
 
-    fun foldrInt f init (SET l) = List.foldl f init l
+    fun foldrInt f init (SET l) = List.foldr f init l
 
     fun filterInt pred (SET l) = let
 	  fun f' ([], l) = SET(List.rev l)
