@@ -343,10 +343,13 @@ structure ThompsonEngine : REGEXP_ENGINE =
                             fun test ([], nextStates) = nextStates
                               | test (s::r, nextStates) = let
 				  fun continue nextStates = test(r, nextStates)
+				  (* the states are added at the position following `c`,
+				   * which is the start of a line iff `c` is a newline.
+				   *)
 				  fun add out =
                                         continue(
                                           addState (
-                                            isFirst, strm', stamp', nextStates, out))
+                                            c = #"\n", strm', stamp', nextStates, out))
 				  in
 				    case s
 				     of CHR(c', out) => if (c = c')
