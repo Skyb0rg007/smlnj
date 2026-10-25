@@ -304,7 +304,7 @@ end
 end
 local open Header in
 type pos = int
-type arg = unit
+type arg = string*int -> unit
 structure MlyValue = 
 struct
 datatype svalue = VOID | ntVOID of unit ->  unit
@@ -395,7 +395,7 @@ exception mlyAction of int
 local open Header in
 val actions = 
 fn (i392,defaultPos,stack,
-    (()):arg) =>
+    (errFn):arg) =>
 case (i392,stack)
 of  ( 0, ( ( _, ( MlyValue.Rules Rules1, _, Rules1right)) :: _ :: ( _,
  ( MlyValue.Defs Defs1, _, _)) :: _ :: ( _, ( MlyValue.Decls Decls1, 
@@ -652,12 +652,20 @@ end)
  in ( LrTable.NT 10, ( result, Exp1left, RCB1right), rest671)
 end
 |  ( 31, ( ( _, ( _, _, RCB1right)) :: ( _, ( MlyValue.REPS REPS2, _,
- _)) :: _ :: ( _, ( MlyValue.REPS REPS1, _, _)) :: ( _, ( MlyValue.Exp
- Exp1, Exp1left, _)) :: rest671)) => let val  result = MlyValue.Exp
- (fn _ => let val  (Exp as Exp1) = Exp1 ()
+ _)) :: _ :: ( _, ( MlyValue.REPS REPS1, REPS1left, _)) :: ( _, ( 
+MlyValue.Exp Exp1, Exp1left, _)) :: rest671)) => let val  result = 
+MlyValue.Exp (fn _ => let val  (Exp as Exp1) = Exp1 ()
  val  REPS1 = REPS1 ()
  val  REPS2 = REPS2 ()
- in (RE.mkRep (Exp, REPS1, REPS2))
+ in (
+if REPS1 <= REPS2
+		   then RE.mkRep (Exp, REPS1, REPS2)
+		   else (errFn (concat [
+		       "malformed repetition {", Int.toString REPS1, ",",
+		       Int.toString REPS2, "}"
+		     ], REPS1left);
+		     Exp)
+)
 end)
  in ( LrTable.NT 10, ( result, Exp1left, RCB1right), rest671)
 end
