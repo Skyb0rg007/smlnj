@@ -224,7 +224,13 @@ fun post_re_PROD_1_SUBRULE_1_PROD_3_ACT (env, PLUS, prim_re, PLUS_SPAN : (Lex.po
 fun post_re_PROD_1_SUBRULE_1_PROD_4_ACT (INT, LCB, RCB, env, prim_re, INT_SPAN : (Lex.pos * Lex.pos), LCB_SPAN : (Lex.pos * Lex.pos), RCB_SPAN : (Lex.pos * Lex.pos), prim_re_SPAN : (Lex.pos * Lex.pos), FULL_SPAN : (Lex.pos * Lex.pos), errs) = 
   (fn re => RE.mkRep (re, INT, INT))
 fun post_re_PROD_1_SUBRULE_1_PROD_5_ACT (LCB, RCB, env, INT1, INT2, prim_re, COMMA, LCB_SPAN : (Lex.pos * Lex.pos), RCB_SPAN : (Lex.pos * Lex.pos), INT1_SPAN : (Lex.pos * Lex.pos), INT2_SPAN : (Lex.pos * Lex.pos), prim_re_SPAN : (Lex.pos * Lex.pos), COMMA_SPAN : (Lex.pos * Lex.pos), FULL_SPAN : (Lex.pos * Lex.pos), errs) = 
-  (fn re => RE.mkRep (re, INT1, INT2))
+  (fn re =>
+	  if INT1 <= INT2 then
+	    RE.mkRep (re, INT1, INT2)
+	  else (errs := (FULL_SPAN, String.concat [
+	    "Error: malformed repetition: {",
+	    Int.toString INT1, ",", Int.toString INT2, "}."])::(!errs);
+	    re))
 fun post_re_PROD_1_SUBRULE_1_PROD_6_ACT (env, prim_re, prim_re_SPAN : (Lex.pos * Lex.pos), FULL_SPAN : (Lex.pos * Lex.pos), errs) = 
   (fn x => x)
 fun post_re_PROD_1_ACT (SR, env, prim_re, SR_SPAN : (Lex.pos * Lex.pos), prim_re_SPAN : (Lex.pos * Lex.pos), FULL_SPAN : (Lex.pos * Lex.pos), errs) = 
