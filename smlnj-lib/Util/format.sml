@@ -266,8 +266,8 @@ structure Format : FORMAT =
 						prec - ((size whole) + (size frac))
 					  in
 					    if (diff > 0)
-					      then zeroRPad(frac, (size frac)+diff)
-					      else frac
+					      then "." ^ zeroRPad(frac, (size frac)+diff)
+					      else "." ^ frac
 					  end
 					else if (frac = "")
 					  then ""
