@@ -481,25 +481,34 @@ struct
 
           (* typeOf : bindings -> F.lexp -> LT.lty list
            * recover the (multiple-return) types of an expression using the
-           * current bindings. *)
+           * current bindings.  Dead bindings (and dead functions) are skipped,
+           * because fcexp does not bind dead variables, so the variables that
+           * they use may be missing from the bindings. *)
           fun typeOf m le =
               let val valueType = sval2lty o val2sval m
                   fun bind (v,ty,e) = typeOf (M.insert(m,v,Var(v,ty))) e
+                  fun bindLive (v,ty,e) =
+                        if C.usedLvar v then bind (v, ty(), e) else typeOf m e
               in case le
                   of F.RET vs => map valueType vs
                    | F.LET(vs,e1,e2) =>
                        typeOf (bindTypes(m,ListPair.zip(vs,typeOf m e1))) e2
                    | F.FIX(fds,e) =>
                        typeOf (foldl (fn (fd as (_,v,_,_),m) =>
-                           M.insert(m,v,Fun(fd,returnTypes m fd))) m fds) e
+                           M.insert(m,v,Fun(fd,returnTypes m fd))) m
+                             (List.filter (C.usedLvar o #2) fds)) e
                    | F.APP(v,_) => #2 (LE.ltd_fkfun (valueType v))
                    | F.TFN(fd as (_,v,_,body),e) =>
-                       typeOf (M.insert(m,v,TFun(fd,typeOf m body))) e
+                       if C.usedLvar v
+                         then typeOf (M.insert(m,v,TFun(fd,typeOf m body))) e
+                         else typeOf m e
                    | F.TAPP(v,ts) => LE.lt_inst(valueType v,ts)
-                   | F.RECORD(rk,vs,v,e) => bind(v,LE.ltc_rkind(rk,map valueType vs),e)
-                   | F.SELECT(u,i,v,e) => bind(v,LE.ltd_rkind(valueType u,i),e)
+                   | F.RECORD(rk,vs,v,e) =>
+                       bindLive(v,fn () => LE.ltc_rkind(rk,map valueType vs),e)
+                   | F.SELECT(u,i,v,e) =>
+                       bindLive(v,fn () => LE.ltd_rkind(valueType u,i),e)
                    | F.CON((_,_,lt),ts,_,v,e) =>
-                       bind(v,hd (#2 (LE.ltd_fkfun (hd (LE.lt_inst(lt,ts))))),e)
+                       bindLive(v,fn () => hd (#2 (LE.ltd_fkfun (hd (LE.lt_inst(lt,ts))))),e)
                    | F.SWITCH(_,_,(PL.DATAcon((_,_,lt),ts,v),e)::_,_) =>
                        (* Assuming the expression is well-typed, visiting one
                         * branch is enough. *)
@@ -510,7 +519,7 @@ struct
                    | F.RAISE(_,tys) => tys
                    | F.HANDLE(e,_) => typeOf m e
                    | F.BRANCH(_,_,e,_) => typeOf m e
-                   | F.PRIMOP(po,_,v,e) => bind(v,primopType po,e)
+                   | F.PRIMOP(po,_,v,e) => bindLive(v,fn () => primopType po,e)
               end
           and returnTypes m ({isrec=SOME (rtys,_),...}: FR.fkind, _, _, _) = rtys
             | returnTypes m (_, _, args, body) = typeOf (bindTypes(m,args)) body
