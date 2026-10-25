@@ -635,7 +635,7 @@ structure BurgEmit : BURGEMIT =
 
 	    val uniq_cnt = ref 0
 
-	    fun compute (pat, rlntll, _, _, _) =
+	    fun compute pats (pat, rlntll, _, _, _) =
 	      let
 		fun do_pat (NT nt, cnt, iswot) =
 		      let val s = Int.toString cnt in
@@ -666,11 +666,21 @@ structure BurgEmit : BURGEMIT =
 			       ) ("",cnt,true,true) sons
 		  in (s,cnt,iswot) end
 
+		(* a pattern that unifies with a more general one cannot use
+		 * the precomputed costs, since the more general pattern may
+		 * also match (and give a cheaper cover)
+		 *)
+		fun overlaps p = (case unify (pat, p)
+		       of NotUnif => false
+			| SameG => false
+			| _ => true
+		      (* end case *))
 		val (string_for_match, iscst, iswot) =
 		  case pat of
 		    T (_,sons) =>
 		      let val (s,c,iswot) = do_sons (sons,0)
-		      in (s,c=0,iswot) end
+		      in (s, c=0 andalso not (List.exists overlaps pats), iswot)
+		      end
 		  | NT _ => error "bug : string_for_match"
 		val uniqstr = Int.toString(!uniq_cnt) before (uniq_cnt := !uniq_cnt+1)
 		  
@@ -703,7 +713,7 @@ structure BurgEmit : BURGEMIT =
 		(* v6 : (pattern * rlntll * min * max * lhss) list list *)
 	      in
 		(* now, inside each subgroup, compute the elements *)
-		map (map compute) v6
+		map (map (compute (map #1 v5))) v6
 		(* : (rlntll*str_for_match*uniqstr*iscst*iswot) list list *)
 	      end
 
@@ -1059,6 +1069,7 @@ structure BurgEmit : BURGEMIT =
 			     end
 			 in
 			   sayi "\t       if ";
+			   if null ntl then say "true " else ();
 			   listiter ((fn (i, nt) =>
 				      (if i=0 then () else say "andalso ";
 					 say ("sub (s"^(Int.toString i)^"_r,"
@@ -1068,6 +1079,7 @@ structure BurgEmit : BURGEMIT =
 			   saynl "then";
 			   sayinl "\t\t let";
 			   sayi ("\t\t   val c = ");
+			   if null ntl then say "0" else ();
 			   listiter ((fn (i, nt) =>
 				      (if i=0 then () else say " + ";
 					 say ("sub (s"^(Int.toString i)^"_c,"
