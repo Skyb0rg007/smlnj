@@ -108,16 +108,17 @@ functor IntervalSetFn (D : INTERVAL_DOMAIN) : INTERVAL_SET =
 
     fun complement (SET[]) = universe
       | complement (SET((a, b)::r)) = let
-	  fun comp (start, (a, b)::r, l) =
-		comp(D.succ b, r, (start, D.pred a)::l)
-	    | comp (start, [], l) = (case D.compare(start, D.maxPt)
-		 of LESS => SET(List.rev((start, D.maxPt)::l))
+	(* `prev` is the upper bound of the previous interval *)
+	  fun comp (prev, (a, b)::r, l) =
+		comp(b, r, (D.succ prev, D.pred a)::l)
+	    | comp (prev, [], l) = (case D.compare(prev, D.maxPt)
+		 of LESS => SET(List.rev((D.succ prev, D.maxPt)::l))
 		  | _ => SET(List.rev l)
 		(* end case *))
 	  in
 	    case D.compare(D.minPt, a)
-	     of LESS => comp(D.succ b, r, [(D.minPt, D.pred a)])
-	      | _ => comp(D.succ b, r, [])
+	     of LESS => comp(b, r, [(D.minPt, D.pred a)])
+	      | _ => comp(b, r, [])
 	    (* end case *)
 	  end
 
