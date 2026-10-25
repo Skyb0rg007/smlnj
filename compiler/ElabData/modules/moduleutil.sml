@@ -98,6 +98,7 @@ fun getFct (elements, entEnv, sym, dacc, dinfo) =
                (FCT{sign = sign, rlzn = entity, access = A.selAcc(dacc,slot),
                     prim = POI.selStrPrimId (dinfo, slot)},
 		entVar)
+	   | ERRORent => (ERRORfct, entVar)  (* error tolerance *)
            | _ => bug "getFct: bad entity")
      | _ => bug "getFct: wrong spec"
 
