@@ -436,7 +436,7 @@ structure BurgEmit : BURGEMIT =
 	 * rules_for_lhs : array with the rules for a given lhs nt
 	 * chains_for_rhs : array with the chain rules for a given rhs nt
 	 * rule_groups :
-	 *      (rl,ntl,str_for_match,uniqstr,iscst,iswot) list list array
+	 *      (rl,ntl,str_for_match,uniqstr,iscst,isexh) list list array
 	 * array of, for each terminal that begin a pattern
 	 *   list of, for each different "case of"
 	 *     list of, for each pattern in "case of"
@@ -444,7 +444,8 @@ structure BurgEmit : BURGEMIT =
 	 *	 string for the match expression printing
 	 *	 unique string for constant patterns
 	 *       is_cst (bool: is the pattern without nonterminals)
-	 *       is_wot (bool: is the pattern without terminals : A(x,y,z,t))
+	 *       is_exh (bool: do the non-constant patterns of the "case of"
+	 *               match every tree, so that it needs no default case)
 	 *)
 
 	fun build_rules_tables (rules : rule array) =
@@ -675,17 +676,66 @@ structure BurgEmit : BURGEMIT =
 			| SameG => false
 			| _ => true
 		      (* end case *))
-		val (string_for_match, iscst, iswot) =
+		val (string_for_match, iscst) =
 		  case pat of
 		    T (_,sons) =>
-		      let val (s,c,iswot) = do_sons (sons,0)
-		      in (s, c=0 andalso not (List.exists overlaps pats), iswot)
+		      let val (s,c,_) = do_sons (sons,0)
+		      in (s, c=0 andalso not (List.exists overlaps pats))
 		      end
 		  | NT _ => error "bug : string_for_match"
 		val uniqstr = Int.toString(!uniq_cnt) before (uniq_cnt := !uniq_cnt+1)
 		  
 	      in
-		(rlntll, string_for_match, uniqstr, iscst, iswot)
+		(rlntll, string_for_match, uniqstr, iscst)
+	      end
+
+	    (* is a match on the given rows exhaustive?  Each row is the list
+	     * of the sons of a pattern, and NT acts as a wildcard.
+	     *)
+	    fun exhaustive [] = false
+	      | exhaustive ([] :: _) = true
+	      | exhaustive rows =
+		  let
+		    fun heads ([], ts) = ts
+		      | heads ((T (t, sons) :: _) :: rows, ts) =
+			  heads (rows,
+				 if List.exists (fn (t', _) => t=t') ts then ts
+				 else (t, length sons)::ts)
+		      | heads (_ :: rows, ts) = heads (rows, ts)
+		    val ts = heads (rows, [])
+		    fun specialize (t, ar) =
+		      List.mapPartial
+			(fn (T (t', sons) :: r) =>
+			      if t=t' then SOME (sons @ r) else NONE
+			  | (p as NT _) :: r =>
+			      SOME (List.tabulate (ar, fn _ => p) @ r)
+			  | [] => NONE)
+			rows
+		    val default =
+		      List.mapPartial (fn (NT _ :: r) => SOME r | _ => NONE) rows
+		  in
+		    List.all (exhaustive o specialize) ts
+		    andalso (length ts = !nb_t orelse exhaustive default)
+		  end
+
+	    fun sons (T (_,sons)) = sons
+	      | sons (NT _) = error "bug : sons"
+
+	    (* compute the elements of a "case of", and whether its
+	     * non-constant patterns are exhaustive
+	     *)
+	    fun computegroup pats group =
+	      let
+		val elems = map (compute pats) group
+		val rows = ListPair.foldr
+			     (fn ((pat,_,_,_,_), (_,_,_,iscst), rows) =>
+				if iscst then rows else sons pat :: rows)
+			     [] (group, elems)
+		val isexh = exhaustive rows
+	      in
+		map (fn (rlntll,str,uniqstr,iscst) =>
+			(rlntll,str,uniqstr,iscst,isexh))
+		    elems
 	      end
 		  
 	    val tgroup = Array.array (!nb_t, []:rule list)
@@ -713,8 +763,8 @@ structure BurgEmit : BURGEMIT =
 		(* v6 : (pattern * rlntll * min * max * lhss) list list *)
 	      in
 		(* now, inside each subgroup, compute the elements *)
-		map (map (compute (map #1 v5))) v6
-		(* : (rlntll*str_for_match*uniqstr*iscst*iswot) list list *)
+		map (computegroup (map #1 v5)) v6
+		(* : (rlntll*str_for_match*uniqstr*iscst*isexh) list list *)
 	      end
 
 	    val rule_groups = Array.tabulate (!nb_t, eacht)
@@ -1027,7 +1077,7 @@ structure BurgEmit : BURGEMIT =
 
 		val firstcase = ref true
 		val firstcaseelem = ref true
-		fun emit_match_case (rlntll,str,uniq,iscst,iswot) =
+		fun emit_match_case (rlntll,str,uniq,iscst,_) =
 		  if iscst then () else
 		    (if !firstcase then
 		       (firstcase := false;
@@ -1118,7 +1168,7 @@ structure BurgEmit : BURGEMIT =
 		      (firstcaseelem := true;
 		       app emit_match_case eleml;
 		       if (not (!firstcaseelem) andalso
-			   not (List.exists (fn (_,_,_,_,iswot) => iswot) eleml))
+			   not (List.exists (fn (_,_,_,_,isexh) => isexh) eleml))
 			 then sayinl "\t  | _ => ()" else ();
 		       if (not (!firstcaseelem)) then sayinl "\t  ;" else ()
 		       )
