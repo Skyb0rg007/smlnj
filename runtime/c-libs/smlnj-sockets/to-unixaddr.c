@@ -26,6 +26,12 @@ ml_val_t _ml_Sock_tounixaddr (ml_state_t *msp, ml_val_t arg)
     int			len;
     ml_val_t		data, res;
 
+  /* check that the path (and its terminating 0) fits in the address */
+    if (strlen(path) >= sizeof(addr.sun_path)) {
+	errno = ENAMETOOLONG;
+	return RAISE_SYSERR(msp, -1);
+    }
+
     memset(&addr, 0, sizeof(struct sockaddr_un));
 
     addr.sun_family = AF_UNIX;
