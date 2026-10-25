@@ -739,6 +739,7 @@ fun yyAction19 (strm, lastMatch : yymatch) = (yystrm := strm;
       (if !ParserControl.quotation
                             then (YYBEGIN Q;
                                   charlist := [];
+                                  stringstart := yypos;
                                   Tokens.BEGINQ(yypos,yypos+1))
                             else (err(yypos, yypos+1)
                                      COMPLAIN "quotation implementation error"
