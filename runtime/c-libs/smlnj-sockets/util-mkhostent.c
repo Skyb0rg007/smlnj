@@ -29,8 +29,9 @@ ml_val_t _util_NetDB_mkhostent (ml_state_t *msp, struct hostent *hentry)
 	ml_val_t	name, aliases, af, addr, addrs, res;
 	int		nAddrs, i;
 
-	name = ML_CString(msp, hentry->h_name);
+      /* allocate the alias list first, since it might cause a GC */
 	aliases = ML_CStringList(msp, hentry->h_aliases);
+	name = ML_CString(msp, hentry->h_name);
 	af = ML_SysConst (msp, &_Sock_AddrFamily, hentry->h_addrtype);
 	for (nAddrs = 0;  hentry->h_addr_list[nAddrs] != NIL(char *);  nAddrs++)
 	    continue;

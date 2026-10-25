@@ -26,8 +26,9 @@ ml_val_t _util_NetDB_mkservent (ml_state_t *msp, struct servent *sentry)
       /* build the return result */
 	ml_val_t	name, aliases, port, proto, res;
 
-	name = ML_CString(msp, sentry->s_name);
+      /* allocate the alias list first, since it might cause a GC */
 	aliases = ML_CStringList(msp, sentry->s_aliases);
+	name = ML_CString(msp, sentry->s_name);
 	port = INT_CtoML(ntohs(sentry->s_port));
 	proto = ML_CString(msp, sentry->s_proto);
 	REC_ALLOC4 (msp, res, name, aliases, port, proto);
