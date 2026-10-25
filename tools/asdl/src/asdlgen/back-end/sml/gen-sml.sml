@@ -154,18 +154,19 @@ structure GenSML : sig
 
   (* add the generated signatures and structures to the appropriate lists *)
     fun addModules modules = let
-          fun getSig (AST.Module{isPrim, id, ...}, sigs) = if isPrim
-                then sigs
-                else Util.sigName(ModV.getPickleSigName id, NONE) :: sigs
+          fun getSig (AST.Module{isPrim, id, ...}, sigs) =
+                if isPrim orelse not (memEnabled() orelse fileEnabled() orelse sexpEnabled())
+                  then sigs
+                  else Util.sigName(ModV.getPickleSigName id, NONE) :: sigs
           fun getStructs (AST.Module{id, ...}, structs) = let
-                val structs = if sexpEnabled()
-                      then ModV.getSExpName id :: structs
-                      else structs
+                fun add (true, name, structs) = name :: structs
+                  | add (false, _, structs) = structs
                 in
-                  ModV.getName id ::
-                  ModV.getPickleName id ::
-                  ModV.getIOName id ::
-                    structs
+                  add (typesEnabled(), ModV.getName id,
+                  add (memEnabled(), ModV.getPickleName id,
+                  add (fileEnabled(), ModV.getIOName id,
+                  add (sexpEnabled(), ModV.getSExpName id,
+                    structs))))
                 end
           in
             genSigs := List.foldr getSig (! genSigs) modules;
