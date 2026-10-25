@@ -1107,11 +1107,14 @@ case fsigexp
                      sigContext=nsctxt, epContext=epContext,
                      region=region, compInfo=compInfo}
 
-       in FSIG{kind = nameOp,
-               paramsig = paramSig,
-               paramvar = paramEntVar,
-               paramsym = paramNameOp,
-               bodysig = bodySig}
+       in case (paramSig, bodySig)
+	    of (SIG _, SIG _) =>
+		 FSIG{kind = nameOp,
+		      paramsig = paramSig,
+		      paramvar = paramEntVar,
+		      paramsym = paramNameOp,
+		      bodysig = bodySig}
+	     | _ => ERRORfsig  (* error already reported *)
       end
 
   (*** currying fctSig arguments automatically inserts structure wrapping ***)
