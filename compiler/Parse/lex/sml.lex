@@ -158,6 +158,7 @@ bad_escape="\\"[\000-\008\011\012\014-\031 !#$%&'()*+,\-./:;<=>?@A-Z\[\]_`c-eg-m
 <INITIAL>{quote}        => (if !ParserControl.quotation
                             then (YYBEGIN Q;
                                   charlist := [];
+                                  stringstart := yypos;
                                   Tokens.BEGINQ(yypos,yypos+1))
                             else (err(yypos, yypos+1)
                                      COMPLAIN "quotation implementation error"
