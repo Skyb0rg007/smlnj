@@ -45,6 +45,9 @@ structure DirTool = struct
 		    handle e => (OS.FileSys.closeDir s; raise e)
 		end
 		val fl = getfiles (OS.FileSys.openDir spec_d)
+			 handle OS.SysErr (m, _) =>
+				err (concat ["cannot read directory ",
+					     spec_d, ": ", m])
 		fun toSpec { name, mkpath } =
 		    { name = name, mkpath = mkpath,
 		      class = SOME "sml", opts = NONE, derived = false }
