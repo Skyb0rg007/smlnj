@@ -214,7 +214,8 @@ fun getStrElem (sym, sign as SIG {elements,...}, sInfo) =
 fun getFctElem (sym, sign as SIG {elements,...},
 	       sinfo as STRINFO(rlzn as {entities,...}, dacc, dinfo)) =
       (case getSpec(elements, sym)
-        of FCTspec{sign=subfsig, entVar, slot} =>
+        of FCTspec{sign=ERRORfsig, ...} => ERRORfct  (* error tolerance *)
+         | FCTspec{sign=subfsig, entVar, slot} =>
 	   ( debugmsg ">>getFctElem";
              FCT{sign=subfsig, rlzn=EE.lookFctEnt(entities,entVar),
                  access=A.selAcc(dacc, slot),
