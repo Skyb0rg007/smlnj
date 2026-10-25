@@ -27,8 +27,12 @@ structure Reconstruct : sig
   (* expType : Absyn.exp -> Types.ty
    * assertion: returned ty is a monotype (i.e. not POLYty)
    *)
-    fun expType (VARexp(ref(VALvar{typ=ref ty,...}),insttvs)) = (case ty
-         of POLYty{tyfun,...} => TU.applyTyfun(tyfun,map VARty insttvs)
+    fun expType (VARexp(ref(VALvar{typ=ref ty,...}),insttvs)) = (case (ty, insttvs)
+        (* a recursive use of a polymorphic function inside its own definition is
+         * not instantiated; its type is the body of the type scheme.
+         *)
+         of (POLYty{tyfun=TYFUN{body, ...}, ...}, []) => body
+          | (POLYty{tyfun,...}, _) => TU.applyTyfun(tyfun,map VARty insttvs)
           | _ => ty
         (* end case *))
       | expType (VARexp _) = bug "varexp"
