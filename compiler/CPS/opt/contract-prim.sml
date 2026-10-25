@@ -350,7 +350,7 @@ structure ContractPrim : sig
                 mulByConst (sz, v, ival)
             (***** QUOT *****)
             | (P.PURE_ARITH{oper=P.QUOT, ...}, v :: NUM{ival=1, ...} :: _) => Val v
-            | (P.PURE_ARITH{oper=P.QUOT, kind}, v :: NUM{ival= ~1, ...} :: _) =>
+            | (P.PURE_ARITH{oper=P.QUOT, kind as P.INT _}, v :: NUM{ival= ~1, ...} :: _) =>
                 Pure(P.PURE_ARITH{oper=P.NEG, kind=kind}, [v])
             | (P.PURE_ARITH{oper=P.QUOT, ...}, _ :: NUM{ival=0, ...} :: _) => None
             | (P.PURE_ARITH{oper=P.QUOT, kind=P.UINT sz}, NUM i :: NUM j :: _) =>
