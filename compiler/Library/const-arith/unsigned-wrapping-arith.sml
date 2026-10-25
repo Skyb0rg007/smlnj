@@ -44,9 +44,12 @@ structure UnsignedWrappingArith : UNSIGNED_CONST_ARITH =
     fun uAdd (wid, a, b) = uNarrow (wid, a + b)
     fun uSub (wid, a, b) = uNarrow (wid, a - b)
     fun uMul (wid, a, b) = uNarrow (wid, a * b)
-    fun uDiv (wid, a, b) = uNarrow (wid, IntInf.quot(a, b))
+  (* unlike the above operations, division and right shifts do not commute with
+   * narrowing, so we must convert negative arguments to unsigned values first.
+   *)
+    fun uDiv (wid, a, b) = uNarrow (wid, IntInf.quot(toUnsigned(wid, a), toUnsigned(wid, b)))
     fun uMod (_, 0, 0) = raise Div (* workaround for bug in SML/NJ pre 110.82 *)
-      | uMod (wid, a, b) = uNarrow (wid, IntInf.rem(a, b))
+      | uMod (wid, a, b) = uNarrow (wid, IntInf.rem(toUnsigned(wid, a), toUnsigned(wid, b)))
 
   (* 2's complement of unsigned argument as unsigned value *)
     fun uNeg (wid, a) = let
@@ -65,7 +68,7 @@ structure UnsignedWrappingArith : UNSIGNED_CONST_ARITH =
     fun uShR (wid, a, b) =
           if (b >= IntInf.fromInt wid)
             then 0
-            else uNarrow (wid, IntInf.~>>(a, Word.fromLargeInt b))
+            else uNarrow (wid, IntInf.~>>(toUnsigned(wid, a), Word.fromLargeInt b))
 
   (* unsigned comparisons *)
     fun uEq (wid, a, b) = (toUnsigned(wid, a) = toUnsigned(wid, b))
