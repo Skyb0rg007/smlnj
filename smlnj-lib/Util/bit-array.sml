@@ -679,7 +679,7 @@ structure BitArray :> BIT_ARRAY =
                 fun loop (0,_,a,_) = a
                   | loop (n,byte,a,mask) =
                       if f ((byte&mask) = mask)
-                        then loop (n-1,byte, a&mask, mask << 0w1)
+                        then loop (n-1,byte, a++mask, mask << 0w1)
                         else loop (n-1,byte, a, mask << 0w1)
                 fun f' (i,byte) =
                        if i < last then loop (8,byte,0w0,0w1)
