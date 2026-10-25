@@ -227,6 +227,13 @@ functor OS_PathFn (OSPathBase : sig
 		       of ([""], [""]) => currentArc
 			| ([""], _) =>
 			    toString{isAbs=false, vol="", arcs=dotDot([], al2)}
+			| (_, [""]) => let
+			  (* relative to the root, so just drop the leading empty arcs *)
+			    fun dropNull ("" :: al) = dropNull al
+			      | dropNull al = mkArcs al
+			    in
+			      toString{isAbs=false, vol="", arcs=dropNull al1}
+			    end
 			| _ =>
 			    toString{isAbs=false, vol="", arcs=strip(al1, al2)}
 		      (* end case *))
