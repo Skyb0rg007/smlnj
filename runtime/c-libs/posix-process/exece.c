@@ -10,6 +10,7 @@
 #include "ml-c.h"
 #include "cfun-proto-list.h"
 #include <unistd.h>
+#include <errno.h>
 
 /* _ml_P_Process_exece : string * string list * string list -> 'a
  *
@@ -24,13 +25,24 @@ ml_val_t _ml_P_Process_exece (ml_state_t *msp, ml_val_t arg)
     char            **argv, **envp;
     ml_val_t        p;
     char            **cp;
-    int             nArgs;
+    int             nArgs, sts_errno;
 
+  /* count the arguments and the environment entries; the array holds both
+   * NIL-terminated vectors.  We allocate it with malloc, since allocating it
+   * in the heap might cause a GC, which would invalidate path, arglst, and
+   * envlst.
+   */
     for (nArgs = 0, p = arglst; p != LIST_nil; p = LIST_tl(p)) {
         nArgs++;
     }
+    for (p = envlst; p != LIST_nil; p = LIST_tl(p)) {
+        nArgs++;
+    }
 
-    cp = PTR_MLtoC(char *, ML_AllocRaw(msp, BYTES_TO_WORDS((nArgs + 1) * sizeof(char *))));
+    cp = (char **)MALLOC((nArgs + 2) * sizeof(char *));
+    if (cp == NIL(char **)) {
+	return RAISE_ERROR(msp, "no malloc memory");
+    }
     argv = cp;
     for (p = arglst;  p != LIST_nil;  p = LIST_tl(p)) {
         *cp++ = STR_MLtoC(LIST_hd(p));
@@ -44,6 +56,10 @@ ml_val_t _ml_P_Process_exece (ml_state_t *msp, ml_val_t arg)
     *cp++ = NIL(char *);  /* terminate the envp[] */
 
     sts = execve(STR_MLtoC(path), argv, envp);
+
+    sts_errno = errno;	/* preserve errno across the FREE */
+    FREE (argv);
+    errno = sts_errno;
 
     CHK_RETURN (msp, sts)
 
