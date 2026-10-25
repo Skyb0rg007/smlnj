@@ -546,6 +546,8 @@ structure PrivateTools : PRIVATETOOLS = struct
 	    handle ToolError { tool, msg } =>
 		   (error (concat ["tool \"", tool, "\" failed: ", msg]);
 		    dummy)
+		 (* the undefined anchor has already been reported *)
+		 | SrcPath.BadAnchor => dummy
 	end
 	fun loop (expansion, []) = expansion
 	  | loop ({ smlfiles, cmfiles, sources }, item :: items) = let
