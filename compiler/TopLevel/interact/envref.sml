@@ -57,8 +57,8 @@ structure EnvRef : ENVREF = struct
 	val oldstack = !stack
     in
 	stack := (es, op :: oldstack);
-	th ()
-	before stack := oldstack
+	(th () before stack := oldstack)
+	  handle e => (stack := oldstack; raise e)
     end
 
     fun listBoundSymbols () =
