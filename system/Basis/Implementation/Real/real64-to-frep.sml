@@ -22,6 +22,11 @@ structure Real64ToFRep : sig
 
     val cvt : real -> FloatRep.float_rep
 
+    (* `exact r` returns the exact decimal representation of `r` (with
+     * trailing zeros removed), instead of the shortest one.
+     *)
+    val exact : real -> FloatRep.float_rep
+
   end = struct
 
     structure W = InlineT.Word
@@ -157,6 +162,50 @@ structure Real64ToFRep : sig
                   nDigits = nDigits,
                   digits = digits,
                   exp = e + e10
+                } end (* toDecimal *)
+          in
+            case expBits
+             of 0w0 => if (fracBits = 0w0)
+                  then FloatRep.Zero sign
+                  else (* subnormal *)
+                    FloatRep.Subnormal(toDecimal (sign, fracBits, subnormalExp))
+              | 0wx7ff => if (fracBits = 0w0)
+                  then FloatRep.Inf sign
+                  else FloatRep.NaN sign
+              | _ => let (* normal *)
+                  val exp = W.toInt(W.fromLarge expBits) - normalExpAdjust
+                  in
+                    FloatRep.Normal(toDecimal (sign, fracBits + implicitBit, exp))
+                  end
+            (* end case *)
+          end
+
+    fun exact r = let
+          (* decompose the 64-bit float into sign, exponent, and fractional parts *)
+          val bits = toBits r
+          val sign = W64.andb(bits, signBitMask) <> 0w0
+          val expBits = W64.andb(W64.rshiftl(bits, nFracBits), expMask)
+          val fracBits = W64.andb(bits, fracMask)
+          (* given the float f = (-1)^s * frac * 2^exp, convert to the exact
+           * decimal representation (frac * 5^-exp) * 10^exp.
+           *)
+          fun toDecimal (sign, frac, exp) = let
+                val (n, e) = if exp >= 0
+                      then (IntInf.<<(W64.toLargeInt frac, W.fromInt exp), 0)
+                      else (W64.toLargeInt frac * IntInf.pow (5, ~exp), exp)
+                (* remove trailing zeros *)
+                fun trim (n, e) = let
+                      val (q, r) = IntInf.quotRem (n, 10)
+                      in
+                        if (r = 0) then trim (q, e+1) else (n, e)
+                      end
+                val (n, e) = trim (n, e)
+                val (nDigits, digits) = toDigits n
+                in {
+                  sign = sign,
+                  nDigits = nDigits,
+                  digits = digits,
+                  exp = e
                 } end (* toDecimal *)
           in
             case expBits
