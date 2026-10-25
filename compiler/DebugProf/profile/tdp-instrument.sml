@@ -196,7 +196,11 @@ structure TDPInstrument :> TDP_INSTRUMENT = struct
 		  | dot ([], a) = impossible (what ^ ": no path")
 		val ms = matchstring r
 	    in
-		concat (ms :: ": " :: dot (n, []))
+	      (* code that is not inside any named binding (e.g., the right-hand
+	       * side of a top-level `val _ = ...`) has no path; just use the
+	       * source location for it.
+	       *)
+		if null n then ms else concat (ms :: ": " :: dot (n, []))
 	    end
 
 	fun i_exp _ loc (A.RECORDexp l) =
