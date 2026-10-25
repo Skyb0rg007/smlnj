@@ -81,7 +81,7 @@ functor Interact(EvalLoop : EVALLOOP) : INTERACT =
     fun useFile fname = (
 	  outerUse := false;
 	  (use fname; outerUse := true; true)
-	    handle CompileError => false
+	    handle CompileError => (outerUse := true; false)
 	      | exn => (
 		  outerUse := true;
 		  EvalLoop.uncaughtExnMessage exn;
