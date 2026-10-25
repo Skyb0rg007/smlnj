@@ -26,6 +26,9 @@ structure LiteralBytecode : sig
 
     val encode : t list -> Word8Vector.vector
 
+    (* the maximum number of fields in a record or vector that can be encoded *)
+    val maxObjLen : int
+
     val dump : t list -> unit
 
   end = struct
@@ -421,6 +424,8 @@ structure LiteralBytecode : sig
               else (W8B.add1(buf, opSTR8w); addUInt32(buf, len));
             W8B.addVec(buf, Byte.stringToBytes s)
           end
+
+    val maxObjLen = 65535
 
     (* encode a RECORD opcode and length *)
     fun encRECORD (buf, len) = if (len <= 14)
