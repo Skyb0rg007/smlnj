@@ -720,6 +720,8 @@ precedences of the rule and the terminal are equal.
 	    | SOME name => 
 		nontermNum "%start" name
 
+	val _ = if wasError() then raise Semantic else ()
+
 	val symbolType = 
 	   let val data = Array.array(numTerms+numNonterms,NONE : ty option)
 	       fun unmap (symbol,ty) =
