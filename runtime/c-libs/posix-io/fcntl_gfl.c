@@ -20,7 +20,7 @@ ml_val_t _ml_P_IO_fcntl_gfl (ml_state_t *msp, ml_val_t arg)
     int             flag;
     ml_val_t        flags, mode, obj;
 
-    flag = fcntl(fd, F_GETFD);
+    flag = fcntl(fd, F_GETFL);
 
     if (flag < 0)
 	return RAISE_SYSERR(msp, flag);
