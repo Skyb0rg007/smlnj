@@ -87,14 +87,25 @@ structure SMLOutput =
     fun rawCode code = ML_Raw [ML.Tok code]
 
   (* make an expression for the given (polymorphic) decision tree *)
-    fun mkPredict (pickFn, choiceFn, strm, tree, errAction) = let
+    fun mkPredict (grm, pickFn, choiceFn, strm, tree, errAction) = let
+	  val S.Grammar {toks, toksImport, ...} = grm
+	(* do the branches match every token?  If so, then an error case would
+	 * be redundant.  We cannot tell for an imported token datatype.
+	 *)
+	  fun coversAll branches = let
+		val set = foldl (fn ((set, _), s) => TSet.union (set, s)) TSet.empty branches
+		in
+		  not (isSome toksImport) andalso (TSet.numItems set = length toks)
+		end
           fun mkPredict (strm, P.Pick p) =
 	        pickFn p
 	    | mkPredict (strm, P.ByTok branches) = let
+		val errCase = if coversAll branches
+		      then []
+		      else [(ML_Wild, errAction)]
 		val branches = List.concat (map mkMatch branches)
-		val errCase = (ML_Wild, errAction)
 	        in
-	          ML_Case (mkGet1 strm, branches @ [errCase])
+	          ML_Case (mkGet1 strm, branches @ errCase)
 	        end
 	    | mkPredict (strm, P.Choice prods) =
 	        choiceFn prods
@@ -139,7 +150,7 @@ structure SMLOutput =
 		  | mkBool false = ML_Var "false"
 		fun choiceFn _ = raise Fail "BUG: mkEBNF: backtracking choice unexpected"
 		val errAction = ML_Var "false"
-		val caseExp = mkPredict (mkBool, choiceFn, "strm", predTree, errAction)
+		val caseExp = mkPredict (grm, mkBool, choiceFn, "strm", predTree, errAction)
 		val predFn = ML_Funs ([(predName, ["strm"], caseExp)], innerExp)
 		in
 	          mkNonterm (grm, pm) (nt, predFn)
@@ -234,7 +245,7 @@ structure SMLOutput =
 	        ML_App ("tryProds", [ML_Var "strm",
 					ML_List (map (ML_Var o Prod.name) prods)])
 	  val errAction = ML_App ("fail", [])
-	  val caseExp = mkPredict (pickFn, choiceFn, "strm", tree, errAction)
+	  val caseExp = mkPredict (grm, pickFn, choiceFn, "strm", tree, errAction)
           in
 	    foldr mkProdFun caseExp (Nonterm.prods nt)
           end
