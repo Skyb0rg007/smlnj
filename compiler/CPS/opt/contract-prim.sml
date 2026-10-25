@@ -450,7 +450,8 @@ structure ContractPrim : sig
             | (P.PURE_NUMSUBSCRIPT{kind}, [STRING s, NUM i]) => let
                 val v = ord(String.sub(s, Int.fromLarge(#ival i)))
                 in
-                  Val(NUM{ival = Int.toLarge v, ty = {sz = 8, tag = true}})
+                  (* the result is a tagged integer, which has the default size *)
+                  Val(tagInt v)
                 end
             (***** COPY *****)
             | (P.COPY{from=n, to=p}, [v]) => if (n = p)
