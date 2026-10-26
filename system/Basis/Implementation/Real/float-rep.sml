@@ -66,11 +66,18 @@ structure FloatRep : sig
 
     (* limits for a particular IEEE floating-point representation *)
     type limits = {
-        minSubnormal : decimal_rep,     (* representation of smallest subnormal *)
+        minRound : decimal_rep,         (* smallest value that does not round to zero *)
         minNormal : decimal_rep,        (* representation of smallest normal *)
-        maxNormal : decimal_rep,        (* representation of largest normal *)
+        maxRound : decimal_rep,         (* largest value that does not round to infinity *)
         maxDigits : int                 (* maximum number of digits allowed *)
       }
+    (* Note that a number rounds to zero only if it is at most half of the smallest
+     * subnormal and it rounds to infinity only if it is at least halfway between
+     * the largest normal and the next power of two; the `minRound` and `maxRound`
+     * limits are these halfway points truncated to `maxDigits` digits.  Numbers
+     * that are between a limit and its halfway point are rounded correctly by the
+     * conversion to binary.
+     *)
 
     local
       (* given a list of digits `[d0, d1, ..., dn]` and an exponent `e`
@@ -91,12 +98,12 @@ structure FloatRep : sig
      * (see https://en.wikipedia.org/wiki/Single-precision_floating-point_format)
      *)
     val limits32 = {
-            minSubnormal = (* 0000 0001 == 1.4012984643 × 10^−45 *)
-              mkDecimalRep ([1,4,0,1,2,9,8,4,6,4,3], ~45),
+            minRound = (* 0000 0001 / 2 == 7.00649232162 × 10^−46 *)
+              mkDecimalRep ([7,0,0,6,4,9,2,3,2], ~46),
             minNormal = (* 0080 0000 == 1.1754943508 × 10^−38 *)
               mkDecimalRep ([1,1,7,5,4,9,4,3,5,0,8], ~38),
-            maxNormal = (* 7f7f ffff == 3.4028234664 × 10^38*)
-              mkDecimalRep ([3,4,0,2,8,2,3,4,6,6,4], 38),
+            maxRound = (* 7f7f ffff + 0000 0001 / 2 == 3.40282356779 × 10^38*)
+              mkDecimalRep ([3,4,0,2,8,2,3,5,6], 38),
             maxDigits = 9
           }
 
@@ -104,12 +111,14 @@ structure FloatRep : sig
      * (see https://en.wikipedia.org/wiki/Double-precision_floating-point_format)
      *)
     val limits64 = {
-            minSubnormal = (* 0000 0000 0000 0001 == 4.9406564584124654 × 10^−324 *)
-              mkDecimalRep ([4,9,4,0,6,5,6,4,5,8,4,1,2,4,6,5,4], ~324),
+            minRound = (* 0000 0000 0000 0001 / 2 == 2.4703282292062327 × 10^−324 *)
+              mkDecimalRep ([2,4,7,0,3,2,8,2,2,9,2,0,6,2,3,2,7], ~324),
             minNormal = (* 0010 0000 0000 0000 == 2.2250738585072014 × 10^−308 *)
               mkDecimalRep ([2,2,2,5,0,7,3,8,5,8,5,0,7,2,0,1,4], ~308),
-            maxNormal = (* 7fef ffff ffff ffff == 1.7976931348623157 × 10^308 *)
-              mkDecimalRep ([1,7,9,7,6,9,3,1,3,4,8,6,2,3,1,5,7], 308),
+            maxRound = (* 7fef ffff ffff ffff + 0000 0000 0000 0001 / 2
+                        * == 1.7976931348623158 × 10^308
+                        *)
+              mkDecimalRep ([1,7,9,7,6,9,3,1,3,4,8,6,2,3,1,5,8], 308),
             maxDigits = 17
           }
 
@@ -171,9 +180,9 @@ structure FloatRep : sig
                 }
           in
             if (#nDigits f' = 0) then Zero(#sign f')
-            else if uLT(f', #minSubnormal limits) then Zero(#sign f')
+            else if uLT(f', #minRound limits) then Zero(#sign f')
             else if uLT(f', #minNormal limits) then Subnormal f'
-            else if uLT(#maxNormal limits, f') then Inf(#sign f')
+            else if uLT(#maxRound limits, f') then Inf(#sign f')
             else Normal f'
           end
 
