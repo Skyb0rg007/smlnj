@@ -58,6 +58,16 @@ structure ListFormat : LIST_FORMAT =
 	  val isInit = eat init
 	  val isSep = eat sep
 	  val isFinal = eat final
+	(* an empty final string always matches, so in that case the list ends
+	 * when there is no further item.
+	 *)
+	  fun scanEmptyFinal (strm, l) = (case isSep strm
+		 of (true, strm') => (case scanItem (skipWS strm')
+		       of (SOME(x, strm)) => scanEmptyFinal (strm, x::l)
+			| NONE => SOME(rev l, skipWS strm)
+		      (* end case *))
+		  | (false, strm) => SOME(rev l, skipWS strm)
+		(* end case *))
 	  fun scan (strm, l) = (case (isFinal strm)
 		 of (true, strm) => SOME(rev l, strm)
 		  | (false, strm) => (case isSep strm
@@ -70,13 +80,18 @@ structure ListFormat : LIST_FORMAT =
 		(* end case *))
 	  in
 	    case (isInit strm)
-	     of (true, strm) => (case (isFinal strm)
-		   of (true, strm) => SOME([], strm)
-		    | (false, strm) => (case scanItem (skipWS strm)
-			 of (SOME(x, strm)) => scan (strm, [x])
-			  | NONE => NONE
-			(* end case *))
-		  (* end case *))
+	     of (true, strm) => if (final = "")
+		  then (case scanItem (skipWS strm)
+		     of (SOME(x, strm)) => scanEmptyFinal (strm, [x])
+		      | NONE => SOME([], skipWS strm)
+		    (* end case *))
+		  else (case (isFinal strm)
+		     of (true, strm) => SOME([], strm)
+		      | (false, strm) => (case scanItem (skipWS strm)
+			   of (SOME(x, strm)) => scan (strm, [x])
+			    | NONE => NONE
+			  (* end case *))
+		    (* end case *))
 	      | (false, i) => NONE
 	    (* end case *)
 	  end (* scan *)
