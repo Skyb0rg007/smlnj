@@ -335,7 +335,11 @@ let val names = map TU.tycName datatycs
      fun checkTyc (tyc0 as GENtyc { eq, kind, path, ... }) =
 	 (case (!eq, kind) of
 	      (DATA, DATATYPE { index, ... }) =>
-	      let val _ = debugmsg (">>checkTyc: " ^
+	      let (* start a fresh traversal: members reset to DATA by an
+		   * earlier traversal (see the NO case below) must be
+		   * analyzed again, not taken from the visited list *)
+		  val _ = visited := []
+		  val _ = debugmsg (">>checkTyc: " ^
 				    Symbol.name (IP.last (path, SS.errorTycId)) ^ " " ^
 				    Int.toString index)
 		  fun eqtyc (GENtyc { eq = e', kind = k', path, ... }) =
