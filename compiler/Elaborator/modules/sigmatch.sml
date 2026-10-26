@@ -169,6 +169,9 @@ let
            NONE)
 
   fun complain s = err EM.COMPLAIN s EM.nullErrorBody
+
+  (* datatypes already reported to have constructors not in the spec *)
+  val extraDconTycs : tycon list ref = ref []
   fun complain' x = (complain x; raise BadBinding)
 
   (*
@@ -852,7 +855,7 @@ let
                handle MU.Unbound sym => matchErr(SOME "value"))
 
              | CONspec{spec=DATACON{name, typ=spectyp, lazyp,
-                                    rep=specrep, ...},...} =>
+                                    rep=specrep, sign=specsign, ...},...} =>
                ((case MU.getSpec(strElements, sym)
                   of CONspec{spec=DATACON{typ=acttyp, rep=actrep, const,
                                         sign, ...}, slot} =>
@@ -862,6 +865,16 @@ let
                       in case matchTypes(spectyp, acttyp, name)
                            of NONE => matchErr NONE
                             | _ =>
+                              (* the datatypes may still have different
+                               * constructors if the spec was constrained
+                               * by a where type definition; a mismatch of
+                               * the datatype itself was reported already *)
+                              case if specsign = sign then NONE
+                                   else SOME(TU.dataconToTycon(DATACON{
+                                          typ=spectyp, name=name, const=const,
+                                          rep=specrep, sign=specsign,
+                                          lazyp=lazyp}))
+                               of (NONE | SOME ERRORtyc) =>
                               let
                                   val bindings' =
                                     case slot
@@ -878,6 +891,16 @@ let
                                in matchElems(elems, entEnv, entDecs, decs,
                                              bindings', succeed)
                               end
+                                | SOME tyc =>
+                                  (if List.exists (fn t => TU.equalTycon(t, tyc))
+                                                  (!extraDconTycs)
+                                   then ()
+                                   else (extraDconTycs := tyc :: !extraDconTycs;
+                                         complain("datatype " ^
+                                                  S.name(TU.tycName tyc) ^
+                                                  " has constructors not in \
+                                                  \the specification"));
+                                   matchErr NONE)
                      end
                      else raise MU.Unbound sym
 
