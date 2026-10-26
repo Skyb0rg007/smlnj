@@ -279,7 +279,7 @@ structure Real64Imp : REAL =
     val max : real * real -> real = InlineT.Real64.max
 
     (* FloatRep to real normalized conversion *)
-    val frepToReal = FRepToReal64.cvt o FloatRep.normalize64
+    val frepToReal = FRepToReal64.cvt
 
     fun toDecimal r = FloatRep.toDecimalApprox(Real64ToFRep.cvt r)
     fun fromDecimal d = (case FloatRep.fromDecimalApprox d

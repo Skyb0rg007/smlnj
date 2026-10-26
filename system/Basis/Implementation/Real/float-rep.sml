@@ -159,10 +159,9 @@ structure FloatRep : sig
            * max limit; the result list of digits is in reverse order
            * and the number of removed digits
            *)
-(* FIXME: we should probably round the result when doing this trimming.  We
- * already have rounding code in the `roundAndNormalize` function in the
- * `FRepToString` structure. Perhaps we can factor out a common utility function.
- *)
+          (* Note that the excess digits are truncated; `FRepToReal64.cvt`
+           * corrects the rounding of the result when digits have been removed.
+           *)
           val (rDigits, nr) = let
                 fun limitDigits (_, [], nr, rds) = (rds, nr)
                   | limitDigits (0, _::r, nr, rds) = limitDigits(0, r, nr+1, rds)
