@@ -120,25 +120,16 @@ void InvokeGC (ml_state_t *msp, int level)
 } /* end of InvokeGC */
 
 
-/* InvokeGCWithRoots:
+/* GCWithRoots:
  *
- * Invoke a garbage collection with possible additional roots.  The list of
- * additional roots should be NIL terminated.  A garbage collection always
- * involves collecting the allocation space.  In addition, if level is greater
- * than 0, or if the first generation is full after the minor collection, then
- * a major collection of one or more generations is performed (at least level
- * generations are collected).
- *
- * NOTE: the MP version of this may be broken, since if a processor calls this
- * but isn't the collecting process, then the extra roots are lost.
+ * The common part of InvokeGCWithRoots and InvokeGCWithRootArray.  The array
+ * roots holds the additional roots up to rootsPtr, and it must have space for
+ * NUM_GC_ROOTS more entries.
  */
-void InvokeGCWithRoots (ml_state_t *msp, int level, ...)
+PVT void GCWithRoots (ml_state_t *msp, int level, ml_val_t **roots, ml_val_t **rootsPtr)
 {
-    ml_val_t	*roots[NUM_GC_ROOTS];
-    ml_val_t	**rootsPtr = roots, *p;
     heap_t	*heap;
     int		i;
-    va_list	ap;
 
     ASSIGN(ProfCurrent, PROF_MINOR_GC);
 
@@ -147,13 +138,6 @@ void InvokeGCWithRoots (ml_state_t *msp, int level, ...)
 #ifdef C_CALLS
     *rootsPtr++ = &CInterfaceRootList;
 #endif
-
-  /* record extra roots from param list */
-    va_start (ap, level);
-    while ((p = va_arg(ap, ml_val_t *)) != NIL(ml_val_t *)) {
-	*rootsPtr++ = p;
-    }
-    va_end(ap);
 
   /* Gather the roots */
     for (i = 0;  i < NumCRoots;  i++)
@@ -208,7 +192,56 @@ void InvokeGCWithRoots (ml_state_t *msp, int level, ...)
 
     ASSIGN(ProfCurrent, PROF_RUNTIME);
 
+} /* end of GCWithRoots */
+
+/* InvokeGCWithRoots:
+ *
+ * Invoke a garbage collection with possible additional roots.  The list of
+ * additional roots should be NIL terminated.  A garbage collection always
+ * involves collecting the allocation space.  In addition, if level is greater
+ * than 0, or if the first generation is full after the minor collection, then
+ * a major collection of one or more generations is performed (at least level
+ * generations are collected).
+ *
+ * NOTE: the MP version of this may be broken, since if a processor calls this
+ * but isn't the collecting process, then the extra roots are lost.
+ */
+void InvokeGCWithRoots (ml_state_t *msp, int level, ...)
+{
+    ml_val_t	*roots[NUM_GC_ROOTS];
+    ml_val_t	**rootsPtr = roots, *p;
+    va_list	ap;
+
+  /* record extra roots from param list */
+    va_start (ap, level);
+    while ((p = va_arg(ap, ml_val_t *)) != NIL(ml_val_t *)) {
+	*rootsPtr++ = p;
+    }
+    va_end(ap);
+
+    GCWithRoots (msp, level, roots, rootsPtr);
+
 } /* end of InvokeGCWithRoots */
+
+/* InvokeGCWithRootArray:
+ *
+ * Invoke a garbage collection with the nRoots additional roots in the array
+ * extraRoots.  This is like InvokeGCWithRoots, but there is no limit on the
+ * number of additional roots.
+ */
+void InvokeGCWithRootArray (ml_state_t *msp, int level, int nRoots, ml_val_t **extraRoots)
+{
+    ml_val_t	**roots = NEW_VEC(ml_val_t *, nRoots + NUM_GC_ROOTS);
+
+    for (int i = 0;  i < nRoots;  i++) {
+	roots[i] = extraRoots[i];
+    }
+
+    GCWithRoots (msp, level, roots, roots + nRoots);
+
+    FREE (roots);
+
+} /* end of InvokeGCWithRootArray */
 
 /* NeedGC:
  *

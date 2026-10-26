@@ -35,6 +35,7 @@ extern void FreeHeap (heap_t *heap);
 
 extern void InvokeGC (ml_state_t *msp, int level);
 extern void InvokeGCWithRoots (ml_state_t *msp, int level, ...);
+extern void InvokeGCWithRootArray (ml_state_t *msp, int level, int nRoots, ml_val_t **extraRoots);
 extern bool_t NeedGC (ml_state_t *msp, Word_t nbytes);
 extern int StringArenaNeedsGC (ml_state_t *msp, Word_t nbytes);
 
