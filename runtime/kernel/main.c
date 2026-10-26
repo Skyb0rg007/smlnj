@@ -130,7 +130,7 @@ PVT void ParseOptions (int argc, char **argv, heap_params_t **heapParams)
 		if ((DebugF = fopen(optionArg, "w")) == NULL) {
 		    DebugF = stderr; /* restore the file pointer */
 		    errFlg = TRUE;
-		    Error("unable to open debug output file \"%s\"\n", *(argv[-1]));
+		    Error("unable to open debug output file \"%s\"\n", optionArg);
 		    continue;
 		}
 	    }
@@ -140,7 +140,7 @@ PVT void ParseOptions (int argc, char **argv, heap_params_t **heapParams)
 		StatsFD = open (optionArg, O_WRONLY|O_TRUNC|O_CREAT, 0666);
 		if (StatsFD == -1) {
 		    errFlg = TRUE;
-		    Error("unable to open statistics file \"%s\"\n", *(argv[-1]));
+		    Error("unable to open statistics file \"%s\"\n", optionArg);
 		    continue;
 		}
 	    }
