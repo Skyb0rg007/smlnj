@@ -93,11 +93,11 @@ structure StringImp : STRING =
 		      then ""
 		      else newVec (len - base)
 	      | (_, SOME 1) =>
-		  if ((base < 0) orelse (len < (base ++ 1)))
+		  if ((base < 0) orelse (len <= base))
 		    then raise General.Subscript
 		    else str(unsafeSub(v, base))
 	      | (_, SOME n) =>
-		  if ((base < 0) orelse (n < 0) orelse (len < (base ++ n)))
+		  if ((base < 0) orelse (n < 0) orelse ((len -- base) < n))
 		    then raise General.Subscript
 		    else newVec n
 	    (* end case *)
