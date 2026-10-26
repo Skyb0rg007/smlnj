@@ -117,7 +117,12 @@
 <INITIAL>"{"	=> (YYBEGIN CURLY; Tok.LCB);
 <CURLY>"}"	=> (YYBEGIN INITIAL; Tok.RCB);
 <CURLY>{id}	=> (Tok.ID yytext);
-<CURLY>{int}    => (Tok.INT (valOf (Int.fromString yytext)));
+<CURLY>{int}    => (Tok.INT (valOf (Int.fromString yytext))
+		    handle Overflow => (print (concat [
+		      Int.toString (!yylineno), ".",
+		      Int.toString (!yycolno), ": integer too large '",
+		      yytext, "'\n"]);
+		      Tok.BOGUS));
 <CURLY>","	=> (Tok.COMMA);
 
 <INITIAL>"<"	=> (YYBEGIN DIRECTIVE; Tok.LT);
