@@ -139,7 +139,7 @@ structure CharBuffer :> MONO_BUFFER
 
     fun reserve (_, 0) = ()
       | reserve (BUF{content, len=ref len, ...}, n) =
-          if (n < 0) then raise Size
+          if (n < 0) orelse (maxLen -- len < n) then raise Size
           else ensureCapacity (content, len, n)
 
     fun add1 (BUF{content, len as ref n, ...}, elem) =
