@@ -839,8 +839,13 @@ and recordEl(rk, l, w, env) =
                   | Path(np as (start,path,_)) =>
                      (let val n = U.lenp path
                           val () = profL n
+                        (* a path that ends with a non-zero offset must be
+                         * followed, since it refers to a function in a
+                         * closure, which is not a field of a record *)
+                          fun offPath (OFFp i) = (i <> 0)
+                            | offPath (SELp(_, p)) = offPath p
                           val (u,env,nhdr) =
-                            if (!CGoptions.sharepath)
+                            if (!CGoptions.sharepath) orelse offPath path
                             then pfollow(np, env, hdr)
                             else ((VAR start,path), env, hdr)
                        in (u,n,nhdr,env)
