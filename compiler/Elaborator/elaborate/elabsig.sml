@@ -427,6 +427,14 @@ fun elabDATAreplSpec(name,path,env,elements,region) =
 	           "rhs of datatype replication spec not a datatype"
 		   EM.nullErrorBody;
 		   (env,elements))
+	(* TU.wrapDef names the wrapper after the rhs; name it after the
+	 * spec, so that the spec is printed with its own name *)
+	fun wrapRhs rhs =
+	    case TU.wrapDef(rhs,mkStamp())
+	      of T.DEFtyc{stamp, tyfun, strict, ...} =>
+		   T.DEFtyc{stamp=stamp, tyfun=tyfun, strict=strict,
+			    path=IP.IPATH[name]}
+	       | _ => bug "elabDATAreplSpec: TU.wrapDef failed"
      in case tyc
           of T.PATHtyc{entPath,arity,...} =>
 	      (* local to current outermost signature *)
@@ -446,7 +454,7 @@ fun elabDATAreplSpec(name,path,env,elements,region) =
 			       (* spec uses wrapped version of the PATHtyc!! *)
 			       val tspec = TYCspec{entVar=ev,
                                                    info=RegTycSpec
-                                                     {spec=TU.wrapDef(tyc, mkStamp()),
+                                                     {spec=wrapRhs tyc,
 						      repl=true,scope=0}}
 			       val elements' =
 				   add(name,tspec,elements,error region)
@@ -536,7 +544,7 @@ fun elabDATAreplSpec(name,path,env,elements,region) =
 			     val tspec =
 				 TYCspec{entVar=ev,
                                          info=RegTycSpec
-                                           {spec=TU.wrapDef(tyc',mkStamp()),
+                                           {spec=wrapRhs tyc',
 					    repl=true,scope=0}}
 
 			     val elements' =
