@@ -806,7 +806,6 @@ functor TextIOFn (
 		      handle ex => (release(); outputExn (strm, "outputSubstr", ex))
 	      fun insert copyVec = let
 		    val bufLen = A.length buf
-		    val dataLen = V.length v
 		    in
 		      if (dataLen >= bufLen)
 			then writeDirect()
@@ -821,7 +820,8 @@ functor TextIOFn (
 								 SOME avail),
 						 dst = buf, di = i }
 				val _ = flushAll()
-				val needsFlush = copyVec(v, avail, dataLen-avail, buf, 0)
+				val needsFlush =
+				      copyVec(v, dataStart+avail, dataLen-avail, buf, 0)
 				in
 			  	  pos := dataLen-avail;
 				  if needsFlush then flush () else ()
