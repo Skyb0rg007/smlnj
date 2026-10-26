@@ -1303,6 +1303,10 @@ fun loop([], decls, entDecls, env, entEnv) =
                                         of [sym] => S.eq(sym,resultId)
                                          | _ => false))
                        then str
+                       (* the wrapper has no components at all if the
+                        * functor body was erroneous, which has already
+                        * been reported *)
+                       else if null (MU.getStrSymbols str) then ERRORstr
                        else (error region' EM.COMPLAIN
                              ("structure " ^ S.name (IP.last (rpath, SS.errorId)) ^
                               " defined by partially applied functor")
