@@ -359,7 +359,13 @@ let
 			       ("variable " ^ S.name x ^
 			        " does not occur in all branches of or-pattern")
 			       EM.nullErrorBody
+		       (* subst is only applied to the second branch of a nested
+			* or-pattern, so a variable that is missing from tbl has
+			* already been reported, either when that or-pattern was
+			* elaborated or by substIncr on its first branch
+			*)
 		       fun subst var = #1 (look (V.varName var))
+			     handle FreeOrVars => var
 		       fun substIncr var =
 			     let val name = V.varName var
 				 val (var', n) = look name
