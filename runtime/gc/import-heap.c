@@ -94,13 +94,16 @@ ml_state_t *ImportHeapImage (const char *fname, heap_params_t *params)
             }
         }
         else {
-            char        buf[1024];
+          /* allocate space for the name plus the image suffix */
+            char        *buf = MALLOC(strlen(fname) + sizeof("." MACHINE_ID "-" OPSYS_ID));
 
-            if (QualifyImageName(strcpy(buf, fname))
+            if ((buf != NIL(char *))
+            && QualifyImageName(strcpy(buf, fname))
             && ((inBuf.file = fopen(buf, "rb")) != NULL)) {
                 if (! SilentLoad) {
                     Say("loading %s ", buf);
                 }
+                FREE (buf);
             }
             else {
                 Die ("unable to open heap image \"%s\"\n", fname);
