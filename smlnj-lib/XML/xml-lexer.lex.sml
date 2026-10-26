@@ -18,6 +18,12 @@ structure XMLLexer
   fun addText s = (text := s :: !text)
   fun decimalEscape s = UTF8.encode(Word.fromInt(Option.valOf(Int.fromString s)))
   fun hexEscape s = UTF8.encode(Option.valOf(Word.fromString s))
+(* decode a character reference using one of the above functions; references to
+ * values that are not Unicode code points are reported as errors.
+ *)
+  fun charRef (lexErr, pos, txt, escape, s) = escape s
+	handle Overflow => (lexErr(pos, ["invalid character reference `", txt, "'"]); "")
+	     | UTF8.Invalid => (lexErr(pos, ["invalid character reference `", txt, "'"]); "")
   fun textToString () = let
 	val s = String.concat(List.rev(!text))
 	in
@@ -200,15 +206,18 @@ fun yyAction25 (strm, lastMatch : yymatch) = (yystrm := strm;
 fun yyAction26 (strm, lastMatch : yymatch) = (yystrm := strm;
        addText ("'"); continue())
 fun yyAction27 (strm, lastMatch : yymatch) = let
+      val yytext = yymktext(strm)
       val yysubstr = yymksubstr(strm)
       in
         yystrm := strm;
-         addText (decimalEscape(trim(2, yysubstr, 1))); continue()
+         addText (charRef(lexErr, yypos, yytext, decimalEscape, trim(2, yysubstr, 1))); continue()
       end
 fun yyAction28 (strm, lastMatch : yymatch) = let
+      val yytext = yymktext(strm)
       val yysubstr = yymksubstr(strm)
       in
-        yystrm := strm;  addText (hexEscape(trim(3, yysubstr, 1))); continue()
+        yystrm := strm;
+         addText (charRef(lexErr, yypos, yytext, hexEscape, trim(3, yysubstr, 1))); continue()
       end
 fun yyAction29 (strm, lastMatch : yymatch) = let
       val yytext = yymktext(strm)
@@ -236,14 +245,18 @@ fun yyAction35 (strm, lastMatch : yymatch) = (yystrm := strm;  T.TEXT ">")
 fun yyAction36 (strm, lastMatch : yymatch) = (yystrm := strm;  T.TEXT "&")
 fun yyAction37 (strm, lastMatch : yymatch) = (yystrm := strm;  T.TEXT "'")
 fun yyAction38 (strm, lastMatch : yymatch) = let
+      val yytext = yymktext(strm)
       val yysubstr = yymksubstr(strm)
       in
-        yystrm := strm;  T.TEXT(decimalEscape(trim(2, yysubstr, 1)))
+        yystrm := strm;
+         T.TEXT(charRef(lexErr, yypos, yytext, decimalEscape, trim(2, yysubstr, 1)))
       end
 fun yyAction39 (strm, lastMatch : yymatch) = let
+      val yytext = yymktext(strm)
       val yysubstr = yymksubstr(strm)
       in
-        yystrm := strm;  T.TEXT(hexEscape(trim(3, yysubstr, 1)))
+        yystrm := strm;
+         T.TEXT(charRef(lexErr, yypos, yytext, hexEscape, trim(3, yysubstr, 1)))
       end
 fun yyAction40 (strm, lastMatch : yymatch) = let
       val yysubstr = yymksubstr(strm)
