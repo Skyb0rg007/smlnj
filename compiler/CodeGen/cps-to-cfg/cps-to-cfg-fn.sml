@@ -228,7 +228,7 @@ C.NUMt{sz=sz}
 		  | RECORD(CPS.RK_RAWBLOCK, flds, x, k) =>
                       allocRawRecord (TP.INT, flds, x, k)
                   | RECORD(CPS.RK_MIXED rep, flds, x, k) =>
-                      allocRecord (D.makeMixedDesc rep, flds, x, bindVarIn(x, k))
+                      allocMixedRecord (rep, flds, x, bindVarIn(x, k))
 		  | RECORD(_, flds, x, k) => allocUniformRecord (
 		      D.makeDesc (length flds, D.tag_record),
 		      TP.INT, flds, x, bindVarIn(x, k))
@@ -430,18 +430,37 @@ C.NUMt{sz=sz}
 		      | _ => C.ALLOC(rawRecord (desc, kind, length fields),
 			  List.map getField fields, x, k)
 		    (* end case *))
+		  else allocLargeRecord (desc, fn _ => kind, fields, x, k)
+	(* allocate a mixed record, whose pointer fields are followed by raw fields
+	 * (untagged integers and floats) that are each 64 bits wide.
+	 *)
+	  and allocMixedRecord (rep, fields, x, k) =
+		if (length fields <= maxAllocArgs)
+		  then allocRecord (D.makeMixedDesc rep, fields, x, k)
 		  else let
-		    val len = length fields
-		    fun init (fld, (i, k)) = (i-1, C.SETTER(
-			  TP.RAW_UPDATE{kind=kind, sz=64},
-			  [var x, num(IntInf.fromInt(i-1)), getField fld],
-			  k))
+		    fun kindOf (v, CPS.OFFp 0) = (case typeOfVal v
+			   of CPS.FLTt _ => TP.FLT
+			    | _ => TP.INT
+			  (* end case *))
+		      | kindOf _ = TP.INT
 		    in
-		      C.ALLOC(
-			TP.RAW_ALLOC{desc = SOME desc, align = 8, len = 8 * len},
-			[], x,
-			#2 (List.foldr init (len, k) fields))
+		      allocLargeRecord (D.makeMixedDesc rep, kindOf, fields, x, k)
 		    end
+	(* allocate a record with 64-bit fields uninitialized and then initialize
+	 * it one field at a time; `kindOf` gives the kind of a field.
+	 *)
+	  and allocLargeRecord (desc, kindOf, fields, x, k) = let
+		val len = length fields
+		fun init (fld, (i, k)) = (i-1, C.SETTER(
+		      TP.RAW_UPDATE{kind=kindOf fld, sz=64},
+		      [var x, num(IntInf.fromInt(i-1)), getField fld],
+		      k))
+		in
+		  C.ALLOC(
+		    TP.RAW_ALLOC{desc = SOME desc, align = 8, len = 8 * len},
+		    [], x,
+		    #2 (List.foldr init (len, k) fields))
+		end
 (* REAL32: FIXME *)
 	(* Allocate a record with raw machine-int-sized components *)
 	  and allocRawRecord (kind, fields, x, k) =
