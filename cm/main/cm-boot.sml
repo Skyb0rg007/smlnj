@@ -288,6 +288,8 @@ functor LinkCM (structure HostBackend : BACKEND) =
                     { context = context, spec = s }
             in
               load_plugin' (SrcPath.file pp)
+            (* the undefined anchor has already been reported *)
+              handle SrcPath.BadAnchor => false
             end
 
       fun cwd_load_plugin x = load_plugin (SrcPath.cwd ()) x
