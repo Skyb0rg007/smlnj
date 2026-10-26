@@ -268,6 +268,47 @@ fun isFreeInFct epContext tyc =
 	      of T.GENtyc{kind=T.DATATYPE{freetycs=_::_, ...}, ...} => true
 	       | _ => false))
 
+(* checkLocalTycs: a datatype that is declared by a core declaration (e.g.,
+ * in a let expression) in a functor body gets no entity path, so it is
+ * neither generative nor instantiated: all the applications of the functor
+ * share it.  If it mentions free tycons, then its values have different
+ * representations in different applications, so it must not occur in the
+ * result signature of the functor, or values from different applications
+ * could be mixed.  (SML'97 rejects any datatype that escapes the scope of
+ * a let.)  We check the value specs of the result signature, including
+ * those of its substructures; functors in the body are checked when they
+ * are elaborated.
+ *)
+fun checkLocalTycs (epContext, sign, err) =
+    let exception Escape of S.symbol * T.tycon
+	fun isFree (tyc as (T.GENtyc _ | T.DEFtyc _)) =
+	      isSome(EPC.lookTycPath(epContext, MU.tycId tyc)) orelse isLocal tyc
+	  | isFree (T.PATHtyc _) = true
+	  | isFree _ = false
+	and isLocal (tyc as T.GENtyc{kind, ...}) =
+	      not (isSome(EPC.lookTycPath(epContext, MU.tycId tyc))) andalso
+	      (case kind
+		 of T.DATATYPE{freetycs, ...} => List.exists isFree freetycs
+		  | T.ABSTRACT tyc' => isLocal tyc'
+		  | _ => false)
+	  | isLocal _ = false
+	fun chkElem (sym, VALspec{spec, ...}) =
+	      ignore (TU.mapTypeFull
+			(fn tyc => if isLocal tyc then raise Escape(sym, tyc)
+				   else tyc)
+			spec)
+	  | chkElem (_, STRspec{sign, ...}) = chkSig sign
+	  | chkElem _ = ()
+	and chkSig (SIG{elements, ...}) = app chkElem elements
+	  | chkSig _ = ()
+     in chkSig sign
+	handle Escape(sym, tyc) =>
+	  err EM.COMPLAIN
+	      ("local datatype " ^ S.name(TU.tycName tyc) ^
+	       " escapes from the functor body in the type of " ^ S.name sym)
+	      EM.nullErrorBody
+    end
+
 (*
  * ASSERT: order of DEFtycs in tycs respects dependencies, i.e. no
  *         DEFtyc refers to tycons occurring after itself.
@@ -1162,6 +1203,11 @@ case fctexp
 			     region, compInfo)
 
           val _ = debugmsg "--elabFct[BaseFct]: body constrained"
+
+          val _ = case bodyStr'
+		    of STR{sign, ...} =>
+		         checkLocalTycs(epContext', sign, error region)
+		     | _ => ()
 
           val fctExp = M.LAMBDA{param=paramEntVar,body=bodyExp'}
 
