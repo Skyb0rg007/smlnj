@@ -468,6 +468,22 @@ structure Typecheck : sig
                       NONE)
                   | someProp => someProp
                 (* end case *))
+        (* check that the value of a "suppress" property is a valid list of names *)
+          fun chkSuppress (cxt, entity) = let
+                fun isAspect name = List.exists (fn n => n = name) ["types", "pickler", "unpickler"]
+                in
+                  case View.getNames PropNames.suppress (view, entity)
+                   of ["none"] => ()
+                    | ["all"] => ()
+                    | names => (case List.find (not o isAspect) names
+                         of SOME name => err(cxt, [
+                                S "invalid name '", S name, S "' in suppress property for '",
+                                E entity, S "'"
+                              ])
+                          | NONE => ()
+                        (* end case *))
+                  (* end case *)
+                end
           fun chkProperty entity = let
                 fun chk (cxt, PT.VProp_Mark m) = chk (withMark' (cxt, m))
                   | chk (cxt, PT.VProp(key, value)) = (
@@ -479,7 +495,11 @@ structure Typecheck : sig
                                   S "redefinition of property '", I key,
                                   S "' for '", E entity, S "'"
                                 ])
-                              else Prop.setValue(prop, value)
+                              else (
+                                Prop.setValue(prop, value);
+                                if Atom.same(#tree key, PropNames.suppress)
+                                  then chkSuppress (markCxt(cxt, #span key), entity)
+                                  else ())
                       (* end case *))
                 in
                   chk
