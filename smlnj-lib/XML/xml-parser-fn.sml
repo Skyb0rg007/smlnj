@@ -104,7 +104,7 @@ functor XMLParserFn (XT : XML_TREE) : XML_PARSER =
 		 of (NONE, XT.TEXT txt' :: content) => XT.TEXT(txt' ^ txt) :: content
 		  | (NONE, content) => XT.TEXT txt :: content
 		  | (SOME ws, XT.TEXT txt' :: content) => XT.TEXT(concat[txt', ws, txt]) :: content
-		  | (SOME ws, content) => XT.TEXT(txt ^ ws) :: content
+		  | (SOME ws, content) => XT.TEXT(ws ^ txt) :: content
 		(* end case *))
 	  in
 	    {content = content, preWS = NONE}
