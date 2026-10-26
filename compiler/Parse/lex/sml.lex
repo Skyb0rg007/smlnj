@@ -306,7 +306,7 @@ bad_escape="\\"[\000-\008\011\012\014-\031 !#$%&'()*+,\-./:;<=>?@A-Z\[\]_`c-eg-m
 <S>({idchars}|{some_sym}|\[|\]|\(|\)|{quote}|[,.;^{}])+|.  => (addString(charlist,yytext); continue());
 <F>{eol}	=> (SourceMap.newline sourceMap yypos; continue());
 <F>{ws}		=> (continue());
-<F>\\		=> (YYBEGIN S; stringstart := yypos; continue());
+<F>\\		=> (YYBEGIN S; continue());
 <F>.		=> (err (!stringstart,yypos) COMPLAIN "unclosed string"
 		        nullErrorBody;
 		    YYBEGIN INITIAL; Tokens.STRING(makeString charlist,!stringstart,yypos+1));
