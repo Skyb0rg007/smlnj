@@ -1191,10 +1191,16 @@ fun closureBoxed(cn, fns, free, fk, ccl, env, rawInfo) =
 (* check if some free variables are really not necessary *)
 fun shortenFree([],[],_) = ([],[])
   | shortenFree(gpfree,fpfree,cclist) =
-      let fun g((v,free),l) =
-            if member3 gpfree v then SL.merge(SL.rmv(v,free),l) else l
-          val all = foldr g [] cclist
-       in (removeV(all,gpfree),removeV(all,fpfree))
+      (* remove the variables reachable from one closure at a time, since two
+       * aliases of the same closure (which are both free when closure aliasing
+       * is disabled) must not eliminate each other. *)
+      let fun g((v,free),(gpfree,fpfree)) =
+            if member3 gpfree v
+              then let val free = SL.rmv(v,free)
+                    in (removeV(free,gpfree),removeV(free,fpfree))
+                   end
+              else (gpfree,fpfree)
+       in foldr g (gpfree,fpfree) cclist
       end
 
 (* check if ok to share with some closures in the enclosing environment *)
