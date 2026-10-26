@@ -20,6 +20,6 @@ ml_val_t _ml_Sock_getaddrfamily (ml_state_t *msp, ml_val_t arg)
 {
     struct sockaddr *addr = GET_SEQ_DATAPTR(struct sockaddr, arg);
 
-    return ML_SysConst (msp, &_Sock_AddrFamily, ntohs(addr->sa_family));
+    return ML_SysConst (msp, &_Sock_AddrFamily, addr->sa_family);
 
 } /* end of _ml_Sock_getaddrfamily */
