@@ -219,6 +219,7 @@ functor OS_PathFn (OSPathBase : sig
                 and dotDot (al, []) = al
                   | dotDot (al, _::r) = dotDot(parentArc :: al, r)
 		and mkArcs [] = [currentArc]
+		  | mkArcs (al as "" :: _) = currentArc :: al (* path ends in "/" *)
 		  | mkArcs al = al
 		in
 		  if not (P.sameVol (v1, v2))
