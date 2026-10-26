@@ -814,6 +814,11 @@ functor LinkCM (structure HostBackend : BACKEND) =
 
                 fun quit () = OS.Process.exit OS.Process.success
 
+              (* convert a numeric argument; a number that is too large is
+               * treated like an argument that is not a number at all
+               *)
+                fun intArg s = Int.fromString s handle Overflow => NONE
+
                 fun quit_if true = quit ()
                   | quit_if false = ()
 
@@ -848,7 +853,7 @@ functor LinkCM (structure HostBackend : BACKEND) =
                             end
                         else if value = ""
                           then #set (SSV.symval name) (SOME 1)
-                          else (case Int.fromString value
+                          else (case intArg value
                              of SOME i => #set (SSV.symval name) (SOME i)
                               | NONE => bad ()
                             (* end case *))
@@ -860,19 +865,19 @@ functor LinkCM (structure HostBackend : BACKEND) =
                   | carg ("-h", f, _, last) = (
                       case String.extract (f, 2, NONE)
                        of "" => help (SOME 0)
-                        | level => help (Int.fromString level)
+                        | level => help (intArg level)
                       (* end case *);
                       quit_if last)
                   | carg ("-s", f, _, last) = (
                       case String.extract (f, 2, NONE)
                        of "" => showcur (SOME 0)
-                        | level => showcur (Int.fromString level)
+                        | level => showcur (intArg level)
                       (* end case *);
                       quit_if last)
                   | carg ("-e", f, _, last) = (
                       case String.extract (f, 2, NONE)
                        of "" => show_envvars (SOME 0)
-                        | level => show_envvars (Int.fromString level)
+                        | level => show_envvars (intArg level)
                       (* end case *);
                       quit_if last)
                   | carg (_, f, mk, _) = processFile (
