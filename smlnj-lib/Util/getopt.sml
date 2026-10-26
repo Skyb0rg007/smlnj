@@ -151,33 +151,33 @@ structure GetOpt :> GET_OPT =
 		end
 	(* handle short option.  x is the option character, subs is the
 	 * rest of the option string, rest is the rest of the command-line
-	 * options.
+	 * options.  In addition to the result and the remaining command-line
+	 * options, we return the characters of subs that remain to be processed
+	 * as further short options (when x is an option without an argument).
 	 *)
 	  fun shortOpt (x, subs, rest) = let
         	val options =
 		      List.filter (fn {short,...} => Char.contains short x) options
         	val ads = map #desc options
         	val optStr = "-"^(str x)
+		val none = SS.full ""
         	in
 		  case (ads, rest)
-		   of (_::_::_, rest1) => (errAmbig optStr; (NonOpt, rest1))
-		    | ((NoArg a)::_, rest') =>
-                	if (SS.isEmpty subs)
-                	  then (Opt(a()), rest')
-                	  else (Opt(a()), ("-"^(SS.string subs))::rest')
+		   of (_::_::_, rest1) => (errAmbig optStr; (NonOpt, none, rest1))
+		    | ((NoArg a)::_, rest') => (Opt(a()), subs, rest')
         	    | ((ReqArg(f,d))::_, []) =>
                 	if (SS.isEmpty subs)
-                	  then (errReq(d, optStr); (NonOpt, []))
-                	  else (Opt(f (SS.string subs)), [])
+                	  then (errReq(d, optStr); (NonOpt, none, []))
+                	  else (Opt(f (SS.string subs)), none, [])
         	    | ((ReqArg(f,_))::_, rest' as (r::rs)) =>
                 	if (SS.isEmpty subs)
-                	  then (Opt(f r), rs)
-                	  else (Opt(f (SS.string subs)), rest')
+                	  then (Opt(f r), none, rs)
+                	  else (Opt(f (SS.string subs)), none, rest')
         	    | ((OptArg(f,_))::_, rest') =>
                 	if (SS.isEmpty subs)
-                	  then (Opt(f NONE), rest')
-                	  else (Opt(f (SOME(SS.string subs))), rest')
-        	    | ([], rest') => (errUnrec optStr; (NonOpt, rest'))
+                	  then (Opt(f NONE), none, rest')
+                	  else (Opt(f (SOME(SS.string subs))), none, rest')
+        	    | ([], rest') => (errUnrec optStr; (NonOpt, none, rest'))
 		  (* end case *)
         	end
 	  fun get ([], opts, nonOpts) = (List.rev opts, List.rev nonOpts)
@@ -197,12 +197,25 @@ structure GetOpt :> GET_OPT =
 		  if (SS.isPrefix "--" arg')
 		    then addOpt(longOpt (SS.triml 2 arg', rest))
         	  else if (SS.isPrefix "-" arg') andalso (SS.size arg' > 1)
-		    then addOpt(shortOpt (SS.sub(arg', 1), SS.triml 2 arg', rest))
+		    then getShort (SS.triml 1 arg', rest, opts, nonOpts)
         	  else (case argOrder
 		     of RequireOrder => (List.rev opts, List.revAppend(nonOpts, arg::rest))
 		      | Permute => get(rest, opts, arg::nonOpts)
 		      | ReturnInOrder f => get(rest, f arg :: opts, nonOpts)
 		    (* end case *))
+		end
+	(* process the short options in `cluster` (the characters following a "-") *)
+	  and getShort (cluster, rest, opts, nonOpts) = let
+		val (kind, more, rest) =
+		      shortOpt (SS.sub(cluster, 0), SS.triml 1 cluster, rest)
+		val (opts, nonOpts) = (case kind
+		       of Opt opt => (opt::opts, nonOpts)
+			| NonOpt => (opts, ("-"^(SS.string cluster))::nonOpts)
+		      (* end case *))
+		in
+		  if (SS.isEmpty more)
+		    then get(rest, opts, nonOpts)
+		    else getShort (more, rest, opts, nonOpts)
 		end
 	  in
 	    fn args => get(args, [], [])
