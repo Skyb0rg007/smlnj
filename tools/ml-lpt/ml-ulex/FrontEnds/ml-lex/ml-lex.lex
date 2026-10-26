@@ -116,7 +116,12 @@ id	= {alpha}({alpha} | {num} | "_" | "'")*;
 
 <RECB>{ws}	=> (lex());
 <RECB>{id}	=> (ID(yytext, !yylineno, !yylineno));
-<RECB>{num}+	=> (REPS(valOf (Int.fromString yytext), !yylineno, !yylineno));
+<RECB>{num}+	=> (REPS(valOf (Int.fromString yytext), !yylineno, !yylineno)
+		    handle Overflow => (print (concat[
+			"[", Int.toString (!yylineno), "] Integer too large '",
+			yytext, "'\n"
+		      ]);
+		      lex()));
 <RECB>","	=> (COMMA(!yylineno, !yylineno));
 <RECB>"}"	=> (YYBEGIN RE; RCB(!yylineno, !yylineno));
 
