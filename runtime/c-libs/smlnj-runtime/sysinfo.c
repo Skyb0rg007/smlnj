@@ -56,6 +56,11 @@ ml_val_t _ml_RunT_sysinfo (ml_state_t *msp, ml_val_t arg)
 #else
 	res = ML_CString(msp, "<unknown>");
 #endif
+  /* the runtime no longer supports software polling or multiprocessing */
+    else if (STREQ("HAS_SOFT_POLL", name))
+	res = ML_CString(msp, FALSE_VALUE);
+    else if (STREQ("HAS_MP", name))
+	res = ML_CString(msp, FALSE_VALUE);
     else
 	return OPTION_NONE;
 
