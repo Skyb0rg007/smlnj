@@ -254,6 +254,20 @@ fun bindReplTyc(EU.INFCT _, epctxt, mkStamp, dtyc) =
 *)
 
 
+(* isFreeInFct: the isFree predicate used to elaborate declarations in a
+ * functor body.  A tycon is free if it has an entity path.  A datatype that
+ * is declared by a core declaration (e.g., in a let expression or in the body
+ * of an abstype) gets no entity path, but if it mentions free tycons then it
+ * must be treated as free too, so that datatypes declared after it do not
+ * embed it as a closed constant.
+ *)
+fun isFreeInFct epContext tyc =
+      (case EPC.lookTycPath(epContext, MU.tycId tyc)
+	of SOME _ => true
+	 | NONE => (case tyc
+	      of T.GENtyc{kind=T.DATATYPE{freetycs=_::_, ...}, ...} => true
+	       | _ => false))
+
 (*
  * ASSERT: order of DEFtycs in tycs respects dependencies, i.e. no
  *         DEFtyc refers to tycons occurring after itself.
@@ -1660,10 +1674,7 @@ and elabDecl0
        let val isFree =
                (case context
                  of EU.INFCT _ =>
-                    (fn tyc =>
-                        (case EPC.lookTycPath(epContext, MU.tycId tyc)
-                          of SOME _ => true
-                           | _ => false))
+                    isFreeInFct epContext
                   | _ => (fn _ => false))
 
            val (datatycs,withtycs,_,env) =
@@ -1722,10 +1733,7 @@ and elabDecl0
        (let val isFree =
               (case context
                 of EU.INFCT _ =>
-                     (fn tyc =>
-                       (case EPC.lookTycPath(epContext, MU.tycId tyc)
-                         of SOME _ => true
-                          | _ => false))
+                     isFreeInFct epContext
                  | _ => (fn _ => false))
 
             val (decl, env', abstycs, withtycs) =
@@ -1764,10 +1772,7 @@ and elabDecl0
        (let val isFree =
              (case context
                of EU.INFCT _ =>
-                    (fn tyc =>
-                       (case EPC.lookTycPath(epContext, MU.tycId tyc)
-                         of SOME _ => true
-                          | _ => false))
+                    isFreeInFct epContext
                 | _ => (fn _ => false))
 
             val (decl0, env') = EC.elabDec(dec, env0, isFree,
