@@ -236,7 +236,7 @@ bad_escape="\\"[\000-\008\011\012\014-\031 !#$%&'()*+,\-./:;<=>?@A-Z\[\]_`c-eg-m
                      YYBEGIN INITIAL; comLevel := 0; charlist := []; continue());
 <L,LLC,LLCQ>.    => (err (!stringstart, yypos+1) WARN
                        "ill-formed (*#line...*) taken as comment" nullErrorBody;
-                     YYBEGIN A; continue());
+                     YYBEGIN A; charlist := []; continue());
 <A>"(*)"	=> (YYBEGIN ALC; continue());
 <ALC>{eol}	=> (SourceMap.newline sourceMap yypos; YYBEGIN A; continue());
 <ALC>.		=> (continue());
