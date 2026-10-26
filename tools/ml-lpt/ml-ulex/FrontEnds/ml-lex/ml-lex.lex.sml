@@ -386,7 +386,12 @@ fun yyAction34 (strm, lastMatch : yymatch) = let
       val yytext = yymktext(strm)
       in
         yystrm := strm;
-        (REPS(valOf (Int.fromString yytext), !yylineno, !yylineno))
+        (REPS(valOf (Int.fromString yytext), !yylineno, !yylineno)
+		    handle Overflow => (print (concat[
+			"[", Int.toString (!yylineno), "] Integer too large '",
+			yytext, "'\n"
+		      ]);
+		      lex()))
       end
 fun yyAction35 (strm, lastMatch : yymatch) = let
       val yylineno = ref(yygetlineNo(!(yystrm)))
