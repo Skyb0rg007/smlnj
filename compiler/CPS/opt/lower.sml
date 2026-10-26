@@ -105,11 +105,15 @@ structure LowerCPS : sig
                             (* specialize for when the rotation amount is a constant *)
                             case v2
                              of C.NUM{ival, ...} => let
-                                (* contraction guarantees 0 < v2 < sz *)
-                                val k = Word.fromInt(sz - IntInf.toInt ival)
+                                (* contraction usually guarantees 0 < v2 < sz,
+                                 * but it does not run when the optimizer is
+                                 * disabled (`Control.CG.rounds < 0`)
+                                 *)
+                                val n = IntInf.toInt(ival mod IntInf.fromInt sz)
+                                val k = Word.fromInt(sz - n)
                                 val m = Word.<<(0w1, k) - 0w1
                                 in
-                                  rot (v2, num'(k, sz), num'(m, sz))
+                                  rot (num(n, sz), num'(k, sz), num'(m, sz))
                                 end
                               | _ =>
                                 letPure (P.REM, sz, [v2, num(sz, sz)], fn n =>
@@ -140,12 +144,12 @@ structure LowerCPS : sig
                             (* specialize for when the rotation amount is a constant *)
                             case v2
                              of C.NUM{ival, ...} => let
-                                (* contraction guarantees 0 < v2 < sz *)
-                                val n' = IntInf.toInt ival
+                                (* see the note for ROTL above *)
+                                val n' = IntInf.toInt(ival mod IntInf.fromInt sz)
                                 val k = Word.fromInt(sz - n')
                                 val m = Word.<<(0w1, Word.fromInt n') - 0w1
                                 in
-                                  rot (v2, num'(k, sz), num'(m, sz))
+                                  rot (num(n', sz), num'(k, sz), num'(m, sz))
                                 end
                               | _ =>
                                 letPure(P.REM, sz, [v2, num (sz, sz)], fn n =>
