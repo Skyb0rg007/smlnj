@@ -248,7 +248,8 @@ functor CPSopt (MachSpec: MACH_SPEC) : CPSOPT =
 	    | apply (p,f)                = (say["\n!! Unknown cps phase '", p, "' !!\n"]; f)
 	  in
 	    (if rounds < 0
-	      then function
+	    (* skip the optimizations, but the lowering is still required *)
+	      then last_contract (LowerCPS.transform function)
 	      else let
 		val optimized = foldl apply function (!CG.cpsopt)
 (*              val function1 = first_contract function *)
