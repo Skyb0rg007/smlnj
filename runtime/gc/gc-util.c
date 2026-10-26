@@ -272,6 +272,7 @@ void ScanWeakPtrs (heap_t *heap)
         switch (EXTRACT_OBJC(ADDR_TO_PAGEID(BIBOP, obj))) {
           case OBJC_new:
           case OBJC_record:
+          case OBJC_mixed:
           case OBJC_string:
           case OBJC_array:
             desc = obj[-1];
