@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "ml-base.h"
+#include "machine-id.h"
 #include "ml-values.h"
 #include "ml-state.h"
 #include "heap-io.h"
@@ -21,13 +22,19 @@
  */
 ml_val_t _ml_RunT_export_heap (ml_state_t *msp, ml_val_t arg)
 {
-    char	fname[1024];
+    char	*fname;
     FILE	*file;
     int		sts;
 
+  /* allocate space for the name plus the image suffix that might be added */
+    fname = MALLOC(strlen(STR_MLtoC(arg)) + sizeof("." MACHINE_ID "-" OPSYS_ID));
+    if (fname == NIL(char *))
+	return RAISE_ERROR(msp, "no malloc memory");
     QualifyImageName (strcpy(fname, STR_MLtoC(arg)));
 
-    if ((file = fopen(fname, "wb")) == NULL)
+    file = fopen(fname, "wb");
+    FREE (fname);
+    if (file == NULL)
 	return RAISE_ERROR(msp, "unable to open file for writing");
 
     msp->ml_arg = ML_true;
