@@ -42,7 +42,7 @@
 %let xdigit = {digit}|[a-fA-F];
 %let alpha = ([a-zA-Z]);
 %let initial = {alpha} | "^" | [-+.@!$%&*/:<=>?_~];
-%let subsequent = {initial} | {digit};
+%let subsequent = {initial} | {digit} | "#";
 %let ident = {initial} {subsequent}*;
 %let interlnws = " "|"\t";      (* intraline whitespace *)
 %let eol = "\n"|"\r\n"|"\r";
