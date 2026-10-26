@@ -689,25 +689,32 @@ functor BinIOFn (
 
   (** Input operations **)
     fun input inS = let
-          val (v, strm') = StreamIO.input(SV.mTake inS)
+          val strm = SV.mTake inS
+          val (v, strm') = StreamIO.input strm
+		handle ex => (SV.mPut (inS, strm); raise ex)
 	  in
 	    SV.mPut (inS, strm'); v
 	  end
     fun input1 inS = let
           val strm = SV.mTake inS
           in
-            case StreamIO.input1 strm
+            case (StreamIO.input1 strm
+		handle ex => (SV.mPut (inS, strm); raise ex))
              of NONE => (SV.mPut (inS, strm); NONE)
               | (SOME(elem, strm')) => (SV.mPut (inS, strm'); SOME elem)
             (* end case *)
           end
     fun inputN (inS, n) = let
-          val (v, strm') = StreamIO.inputN (SV.mTake inS, n)
+          val strm = SV.mTake inS
+          val (v, strm') = StreamIO.inputN (strm, n)
+		handle ex => (SV.mPut (inS, strm); raise ex)
 	  in
 	    SV.mPut (inS, strm'); v
 	  end
     fun inputAll (inS : instream) = let
-	  val (v, strm') = StreamIO.inputAll(SV.mTake inS)
+          val strm = SV.mTake inS
+	  val (v, strm') = StreamIO.inputAll strm
+		handle ex => (SV.mPut (inS, strm); raise ex)
 	  in
 	    SV.mPut (inS, strm'); v
 	  end
