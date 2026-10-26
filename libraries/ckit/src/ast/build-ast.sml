@@ -2981,6 +2981,8 @@ end old code ******)
       and evalBinaryOp (binop, e, e') =
 	let val opt = evalAstExpr e
 	    val opt' = evalAstExpr e'
+	    fun divByZero () =
+		  (warn "Division by zero in constant expression."; NONE)
 	in
 	  if isSome opt andalso isSome opt' then
 	    let val i  = valOf opt
@@ -2989,8 +2991,10 @@ end old code ******)
 		 of Ast.Plus   => SOME (i + i')
 		  | Ast.Minus  => SOME (i - i')
 		  | Ast.Times  => SOME (i * i')
-		  | Ast.Divide => SOME (LargeInt.quot (i,i'))
-		  | Ast.Mod    => SOME (LargeInt.rem (i,i'))
+		  | Ast.Divide => if i' = 0 then divByZero ()
+				  else SOME (LargeInt.quot (i,i'))
+		  | Ast.Mod    => if i' = 0 then divByZero ()
+				  else SOME (LargeInt.rem (i,i'))
 		  | Ast.Gt     => SOME (if i > i' then 1 else 0)
 		  | Ast.Lt     => SOME (if i < i' then 1 else 0)
 		  | Ast.Gte    => SOME (if i >= i' then 1 else 0)
