@@ -632,15 +632,15 @@ functor BinIOFn (
 	      fun release () = SV.mPut(strmMV, strm)
 	      in
 		flushBuffer (strmMV, strm, "getPosOut");
-		case writer
+		(case writer
 	 	 of PIO.WR{getPos=SOME f, ...} => (
 		      OUTP{pos = f(), strm = strmMV}
 		        handle ex => (release(); outputExn(strm, "getPosOut", ex)))
 		  | _ => (
 		      release();
 		      outputExn(strm, "getPosOut", IO.RandomAccessNotSupported))
-		(* end case *)
-		before release()
+		(* end case *))
+		  before release()
 	      end
 	fun filePosOut (OUTP{pos, strm=strmMV}) = (
 	      SV.mPut (strmMV, lockAndChkClosedOut (strmMV, "filePosOut"));
