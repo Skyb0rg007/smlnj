@@ -232,7 +232,15 @@ let
 
                           in
                               case compareDcons (specnames, strnames)
-                               of ([],[]) => strTycon  (* OK, datacon names match *)
+                               of ([],[]) =>
+                                  (* the equality property of the spec can be
+                                   * wrong if a where type has redefined an
+                                   * eqtype that the datatype mentions, e.g.
+                                   * as int -> int, so we check it here *)
+                                  if eqprop=YES andalso not(EqTypes.isEqTycon strTycon)
+                                  then complain'("type " ^ specName ^
+                                                 " must be an equality type")
+                                  else strTycon  (* OK, datacon names match *)
                                 | (s_only, a_only) =>
                                   complain'(concat(List.concat
                                       [["datatype ",specName,
