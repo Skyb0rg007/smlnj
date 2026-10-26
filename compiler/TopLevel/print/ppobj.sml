@@ -225,10 +225,10 @@ structure PPObj : PPOBJ =
             (* count the "E" and sign *)
             val (n, e) = if (e < 0) then (2, ~e) else (1, e)
             in
-              if (n < 10) then n+1
-              else if (n < 100) then n+2
-              else if (n < 1000) then n+3
-              else if (n < 10000) then n+4
+              if (e < 10) then n+1
+              else if (e < 100) then n+2
+              else if (e < 1000) then n+3
+              else if (e < 10000) then n+4
               else n+5 (* covers max exponent for 128-bit floats *)
             end
       val digits = #["0","1","2","3","4","5","6","7","8","9"]
