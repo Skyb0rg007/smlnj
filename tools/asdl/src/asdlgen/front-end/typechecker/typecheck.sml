@@ -291,9 +291,18 @@ structure Typecheck : sig
                 in
                   {label = lab, ty = ty}
                 end
+          val fields' = attribs @ List.mapi (fn (i, fld) => chkField (cxt, i, fld)) fields
+          fun isLabeled {label=AST.Lab _, ty} = true
+            | isLabeled _ = false
           in
-(* FIXME: check for duplicate field names and inconsistent labeling *)
-            attribs @ List.mapi (fn (i, fld) => chkField (cxt, i, fld)) fields
+(* FIXME: check for duplicate field names *)
+          (* the fields (including any attributes) must either all be labeled or
+           * all be unlabeled.
+           *)
+            if List.all isLabeled fields' orelse not(List.exists isLabeled fields')
+              then ()
+              else err (cxt, [S "fields must either all be labeled or all be unlabeled"]);
+            fields'
           end
 
   (* check a type expression, where the module name and tycon are optional *)
