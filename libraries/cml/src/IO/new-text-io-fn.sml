@@ -854,14 +854,17 @@ functor TextIOFn (
 
   (** Input operations **)
     fun input inS = let
-          val (v, strm') = StreamIO.input(SV.mTake inS)
+          val strm = SV.mTake inS
+          val (v, strm') = StreamIO.input strm
+		handle ex => (SV.mPut (inS, strm); raise ex)
 	  in
 	    SV.mPut (inS, strm'); v
 	  end
     fun input1 inS = let
           val strm = SV.mTake inS
           in
-            case StreamIO.input1 strm
+            case (StreamIO.input1 strm
+		handle ex => (SV.mPut (inS, strm); raise ex))
              of NONE => (SV.mPut (inS, strm); NONE)
               | (SOME(elem, strm')) => (SV.mPut (inS, strm'); SOME elem)
             (* end case *)
@@ -869,11 +872,14 @@ functor TextIOFn (
     fun inputN (inS, n) = let
           val  strm = SV.mTake inS
           val (v, strm') = StreamIO.inputN (strm, n)
+		handle ex => (SV.mPut (inS, strm); raise ex)
 	  in
 	    SV.mPut (inS, strm'); v
 	  end
     fun inputAll (inS : instream) = let
-	  val (v, strm') = StreamIO.inputAll(SV.mTake inS)
+          val strm = SV.mTake inS
+	  val (v, strm') = StreamIO.inputAll strm
+		handle ex => (SV.mPut (inS, strm); raise ex)
 	  in
 	    SV.mPut (inS, strm'); v
 	  end
@@ -981,7 +987,8 @@ functor TextIOFn (
     fun inputLine inS = let
           val strm = SV.mTake inS
           in
-            case StreamIO.inputLine strm
+            case (StreamIO.inputLine strm
+		handle ex => (SV.mPut (inS, strm); raise ex))
              of NONE => (SV.mPut (inS, strm); NONE)
               | SOME(s, strm') => (SV.mPut (inS, strm'); SOME s)
             (* end case *)
