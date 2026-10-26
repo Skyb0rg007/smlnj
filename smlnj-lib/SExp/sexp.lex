@@ -109,8 +109,11 @@
 <S>"\\"{interlnws}*{eol}{interlnws}*
                                 => ( continue() );
 <S>"\""				=> ( YYBEGIN INITIAL; finishString() );
+<S><<EOF>>			=> ( sbuf := []; raise Fail "unclosed string" );
 (* FIXME: add some error reporting *)
 <S>.                            => ( continue() );
 
 (* FIXME: add some error reporting *)
 <INITIAL>.			=> ( skip() );
+
+<INITIAL><<EOF>>		=> ( eof() );

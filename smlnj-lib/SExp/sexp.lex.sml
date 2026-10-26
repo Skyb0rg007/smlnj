@@ -1406,7 +1406,8 @@ fun yyQ1 (strm, lastMatch : yymatch) = (case (yygetc(strm))
                 val yylineno = ref(yygetlineNo(!(yystrm)))
                 in
                   (case (!(yyss))
-                   of _ => (UserDeclarations.eof())
+                   of INITIAL => (  eof() )
+                    | S => (  sbuf := []; raise Fail "unclosed string" )
                   (* end case *))
                 end
               else yystuck(lastMatch)
@@ -1722,7 +1723,8 @@ fun yyQ0 (strm, lastMatch : yymatch) = (case (yygetc(strm))
                 val yylineno = ref(yygetlineNo(!(yystrm)))
                 in
                   (case (!(yyss))
-                   of _ => (UserDeclarations.eof())
+                   of INITIAL => (  eof() )
+                    | S => (  sbuf := []; raise Fail "unclosed string" )
                   (* end case *))
                 end
               else yystuck(lastMatch)
