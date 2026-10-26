@@ -55,6 +55,12 @@ functor Interact(EvalLoop : EVALLOOP) : INTERACT =
  * a confusing reference to this line of compiler code!  Also for line 65.
  *)
                             if isOuter then raise exn' else raise exn
+                      (* an error reading the file (e.g., it is a directory) *)
+                        | IO.Io _ => (
+                            app Control.Print.say [
+                                "[use failed: ", General.exnMessage exn, "]\n"
+                              ];
+                            compileError())
                         | _ => (
                           (* this is probably an error in the compiler! *)
                             if isOuter
