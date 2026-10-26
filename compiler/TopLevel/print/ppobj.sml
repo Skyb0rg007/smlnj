@@ -262,6 +262,9 @@ structure PPObj : PPOBJ =
                                       in
                                         if (d' > 9) then (true, 0, []) else (false, 1, [d'])
                                       end
+                                  | (false, 0, []) =>
+                                      (* drop trailing zeros *)
+                                      if (d = 0) then (false, 0, []) else (false, 1, [d])
                                   | (false, nd, ds') => (false, nd+1, d::ds')
                                 (* end case *))
                           in
