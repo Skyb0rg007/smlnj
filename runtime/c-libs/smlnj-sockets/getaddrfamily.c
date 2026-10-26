@@ -3,6 +3,7 @@
  * COPYRIGHT (c) 1995 AT&T Bell Laboratories.
  */
 
+#include <stddef.h>
 #include "sockets-osdep.h"
 #include INCLUDE_SOCKET_H
 #include "ml-base.h"
@@ -19,6 +20,13 @@
 ml_val_t _ml_Sock_getaddrfamily (ml_state_t *msp, ml_val_t arg)
 {
     struct sockaddr *addr = GET_SEQ_DATAPTR(struct sockaddr, arg);
+
+  /* the address of an unnamed sender (e.g., from recvfrom on a UNIX-domain
+   * datagram socket) can be empty, in which case there is no family field
+   * (and no data) to look at.
+   */
+    if (GET_SEQ_LEN(arg) < offsetof(struct sockaddr, sa_data))
+	return ML_SysConst (msp, &_Sock_AddrFamily, AF_UNSPEC);
 
     return ML_SysConst (msp, &_Sock_AddrFamily, ntohs(addr->sa_family));
 
