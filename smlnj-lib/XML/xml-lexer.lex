@@ -101,7 +101,8 @@
 <INITIAL>"&apos;"		=> (T.TEXT "'");
 <INITIAL>"&#"[0-9]+";"	        => (T.TEXT(decimalEscape(trim(2, yysubstr, 1))));
 <INITIAL>"&#x"[a-fA-F0-9]+";"	=> (T.TEXT(hexEscape(trim(3, yysubstr, 1))));
-<INITIAL>"<![CDATA[".*"]]>"	=> (T.CDATA(trim (9, yysubstr, 3)));
+<INITIAL>"<![CDATA["(~(.*"]]>".*))"]]>"
+				=> (T.CDATA(trim (9, yysubstr, 3)));
 
 <INITIAL>.		        => (lexErr(yypos, [
                                         "bad character `", String.toString yytext, "'"
