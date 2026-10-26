@@ -22,6 +22,12 @@
   fun addText s = (text := s :: !text)
   fun decimalEscape s = UTF8.encode(Word.fromInt(Option.valOf(Int.fromString s)))
   fun hexEscape s = UTF8.encode(Option.valOf(Word.fromString s))
+(* decode a character reference using one of the above functions; references to
+ * values that are not Unicode code points are reported as errors.
+ *)
+  fun charRef (lexErr, pos, txt, escape, s) = escape s
+	handle Overflow => (lexErr(pos, ["invalid character reference `", txt, "'"]); "")
+	     | UTF8.Invalid => (lexErr(pos, ["invalid character reference `", txt, "'"]); "")
   fun textToString () = let
 	val s = String.concat(List.rev(!text))
 	in
@@ -84,8 +90,8 @@
 <LIT1,LIT2>"&gt;"		=> (addText (">"); continue());
 <LIT1,LIT2>"&amp;"		=> (addText ("&"); continue());
 <LIT1,LIT2>"&apos;"		=> (addText ("'"); continue());
-<LIT1,LIT2>"&#"[0-9]+";"	=> (addText (decimalEscape(trim(2, yysubstr, 1))); continue());
-<LIT1,LIT2>"&#x"[a-fA-F0-9]+";"	=> (addText (hexEscape(trim(3, yysubstr, 1))); continue());
+<LIT1,LIT2>"&#"[0-9]+";"	=> (addText (charRef(lexErr, yypos, yytext, decimalEscape, trim(2, yysubstr, 1))); continue());
+<LIT1,LIT2>"&#x"[a-fA-F0-9]+";"	=> (addText (charRef(lexErr, yypos, yytext, hexEscape, trim(3, yysubstr, 1))); continue());
 <LIT1>[^"<>&]+			=> (addText yytext; continue());
 <LIT2>[^'<>&]+			=> (addText yytext; continue());
 
@@ -99,8 +105,8 @@
 <INITIAL>"&gt;"			=> (T.TEXT ">");
 <INITIAL>"&amp;"		=> (T.TEXT "&");
 <INITIAL>"&apos;"		=> (T.TEXT "'");
-<INITIAL>"&#"[0-9]+";"	        => (T.TEXT(decimalEscape(trim(2, yysubstr, 1))));
-<INITIAL>"&#x"[a-fA-F0-9]+";"	=> (T.TEXT(hexEscape(trim(3, yysubstr, 1))));
+<INITIAL>"&#"[0-9]+";"	        => (T.TEXT(charRef(lexErr, yypos, yytext, decimalEscape, trim(2, yysubstr, 1))));
+<INITIAL>"&#x"[a-fA-F0-9]+";"	=> (T.TEXT(charRef(lexErr, yypos, yytext, hexEscape, trim(3, yysubstr, 1))));
 <INITIAL>"<![CDATA["(~(.*"]]>".*))"]]>"
 				=> (T.CDATA(trim (9, yysubstr, 3)));
 
