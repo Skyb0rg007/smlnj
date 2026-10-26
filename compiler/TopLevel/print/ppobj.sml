@@ -254,7 +254,7 @@ structure PPObj : PPOBJ =
                   val nDigits = List.length digits
                   val (nDigits, digits, exp) = if (List.length digits > prec)
                         then let (* round to `prec` significant digits *)
-                          fun round (0, _) = (false, 0, [])
+                          fun round (0, d::_) = (d >= 5, 0, [])
                             | round (_, []) = (false, 0, [])
                             | round (n, d::ds) = (case round (n-1, ds)
                                  of (true, _, _) => let
