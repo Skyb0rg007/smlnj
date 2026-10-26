@@ -941,6 +941,7 @@ SayDebug (" unboxed\n");
 		if (IS_FROM_SPACE(aid, maxAid)) {
 		    switch (EXTRACT_OBJC(aid)) {
 		      case OBJC_record:
+		      case OBJC_mixed:
 		      case OBJC_string:
 		      case OBJC_array:
 			desc = vp[-1];
