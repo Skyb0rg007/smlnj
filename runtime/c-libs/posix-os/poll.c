@@ -160,6 +160,11 @@ PVT ml_val_t ML_Poll (ml_state_t *msp, ml_val_t pollList, struct timeval *timeou
         item = LIST_hd(l);
         fd = REC_SELINT(item, 0);
         flag = INT_MLtoC(DEREF(REC_SEL(item, 1)));
+        /* select cannot handle descriptors outside the range of an fd_set */
+        if ((fd < 0) || (fd >= FD_SETSIZE)) {
+            errno = EINVAL;
+            return RAISE_SYSERR(msp, -1);
+        }
         if ((flag & RD_BIT) != 0) {
             if (rfds == NIL(fd_set *)) {
                 rfds = &rset;
