@@ -1729,36 +1729,55 @@ and elabDecl0
 	     | _ => no_datatype ()
        end
 
-   | AbstypeDec x =>
+   | AbstypeDec {abstycs=absdbs, withtycs=abstbs, body} =>
        (let val isFree =
               (case context
                 of EU.INFCT _ =>
                      isFreeInFct epContext
                  | _ => (fn _ => false))
 
-            val (decl, env', abstycs, withtycs) =
-		case  EC.elabABSTYPEdec(x, env0, context, isFree,
-					rpath, region, compInfo) of
-		    (d as A.ABSTYPEdec x, e) =>
-		    (d, e, #abstycs x, #withtycs x)
-		  | _ => bug "elabDecl0:AbstypeDec"
-            (*
-             * Potential bug: what about other datatype declarations within
-             * the body of ABSTYPEdec ? they are local declarations; but
-             * they may not be properly dealt with now ! (ZHONG)
-             *)
-
-            fun chkError () = !anyErrors
-            (* note that transform is applied to decl before type checking *)
-            val env1 = SE.atop(env', env0)
-            val decl0 = Typecheck.decType(env1, transform decl,
-                                          top, error, chkError, region)
-	    val decl1 = if !anyErrors then decl0
-			else MatchTrans.transMatchDec (decl0, env1, error, region)
-            val (entEnv, entDec) =
+            val (abstycs, withtycs, _, envt) =
+		ET.elabDATATYPEdec({datatycs=absdbs, withtycs=abstbs}, env0,
+				   [], EE.empty, isFree, rpath, region, compInfo)
+            val (entEnv1, entDec1) =
                 bindNewTycs(context, epContext, mkStamp, abstycs, withtycs,
 			    rpath, error region)
-         in (decl1, entDec, env', entEnv)
+
+	    (* the body is elaborated like the declarations of a structure,
+	     * so that the datatypes declared in it get entity paths (and
+	     * thus are generative and instantiated in a functor body)
+	     *)
+	    val (body', entDec2, envb, entEnv2) =
+		elabDecl0(body, SE.atop(envt, env0),
+			  EE.mark(mkStamp, EE.atop(entEnv1, entEnv0)),
+			  context, top, tdepth, epContext, rpath, region,
+			  compInfo)
+
+	    (* the constructors of the abstract types are not visible
+	     * outside the body *)
+	    fun bind (tyc, e) = SE.bind(TU.tycName tyc, B.TYCbind tyc, e)
+	    val env' = SE.atop(envb, foldl bind (foldl bind SE.empty abstycs) withtycs)
+
+	    (* The body has been type checked, so we type check the abstype
+	     * with just the datatype declarations of its body, which makes
+	     * the abstract types abstract and recomputes the equality
+	     * properties of these datatypes.
+	     *)
+	    fun dtDecs (d as A.DATATYPEdec _) = [d]
+	      | dtDecs (A.SEQdec ds) = List.concat (map dtDecs ds)
+	      | dtDecs (A.LOCALdec(d1, d2)) = dtDecs d1 @ dtDecs d2
+	      | dtDecs (A.MARKdec(d, _)) = dtDecs d
+	      | dtDecs _ = []
+            fun chkError () = !anyErrors
+            val _ = Typecheck.decType(SE.atop(env', env0),
+			A.ABSTYPEdec{abstycs=abstycs, withtycs=withtycs,
+				     body=A.SEQdec(dtDecs body')},
+			top, error, chkError, region)
+	    val entDec = case context
+			  of EU.INFCT _ => seqEntDec [entDec1, entDec2]
+			   | _ => M.EMPTYdec
+         in (A.ABSTYPEdec{abstycs=abstycs, withtycs=withtycs, body=body'},
+	     entDec, env', EE.mark(mkStamp, EE.atop(entEnv2, entEnv1)))
         end
         handle EE.Unbound =>
 	  (debugmsg("$elabDecl0: AbstypeDec");
