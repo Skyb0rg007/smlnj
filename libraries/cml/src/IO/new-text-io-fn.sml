@@ -757,6 +757,7 @@ functor TextIOFn (
 		    lockAndChkClosedOut (strmMV, "setPosOut")
 	      fun release () = SV.mPut(strmMV, strm)
 	      in
+		flushBuffer (strmMV, strm, "setPosOut");
 		case writer
 		 of PIO.WR{setPos=SOME f, ...} => (
 		      (f pos)
