@@ -85,6 +85,7 @@ fun getStr (elements, entEnv, sym, dacc, prims) =
                (STR{sign = sign, rlzn = entity, access = A.selAcc(dacc,slot),
                     prim = POI.selStrPrimId(prims, slot)},
 		entVar)
+	   | ERRORent => (ERRORstr, entVar)  (* error tolerance *)
 	   | _ => bug("getStr: bad entity for " ^ Symbol.symbolToString sym)
 	(* end case *))
      | _ => bug "getStr: wrong spec"
