@@ -245,9 +245,12 @@ structure StringImp : STRING =
 		else NONE
 	  val scanChar = Char.scanC getc
 	  fun accum (i, chars) = (case (scanChar i)
-		 of NONE => if InlineT.Int.<(i, len)
-		      then NONE (* bad format *)
-		      else SOME(implodeRev chars)
+		 of NONE => (case chars
+		       of [] => if InlineT.Int.<(i, len)
+			    then NONE (* bad format *)
+			    else SOME ""
+			| _ => SOME(implodeRev chars) (* the longest valid prefix *)
+		      (* end case *))
 		  | (SOME(c, i')) => accum(i', c::chars)
 		(* end case *))
 	  in
