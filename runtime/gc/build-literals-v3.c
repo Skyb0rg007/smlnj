@@ -79,50 +79,28 @@ typedef struct {
  */
 PVT void GC (State_t *stp, int gcLevel)
 {
-    ml_val_t rootObj;
+    /* the roots are the saved array, the object slots of the stack, and the code
+     * pointer.  We pass them to the collector as an array of root pointers, since
+     * a heap-allocated record of them might not fit in the remaining allocation
+     * space.
+     */
+    ml_val_t **roots = NEW_VEC(ml_val_t *, stp->maxSaved + stp->tos + 2);
+    int nRoots = 0;
 
-    /* construct an object containing the roots that are in the state */
-    {
-        /* the roots cover the size of the save area plus the current stack depth */
-        int nRoots = stp->maxSaved + stp->tos + 1;
-
-        ML_AllocWrite(stp->msp, 0, MAKE_DESC(nRoots, DTAG_record));
-        /* first we copy the values from the saved array */
-        for (int i = 0;  i < stp->maxSaved;  ++i) {
-            ML_AllocWrite(stp->msp, i+1, stp->saved[i]);
+    for (int i = 0;  i < stp->maxSaved;  ++i) {
+        roots[nRoots++] = &(stp->saved[i]);
+    }
+    for (int i = 0;  i <= stp->tos;  ++i) {
+        if (stp->stk[i].kind == VK_OBJ) {
+            roots[nRoots++] = &(stp->stk[i].val.ml);
         }
-        /* copy the stack roots starting from the bottom */
-        for (int i = 0;  i <= stp->tos;  ++i) {
-            if (stp->stk[i].kind == VK_OBJ) {
-                ML_AllocWrite(stp->msp, stp->maxSaved+1+i, stp->stk[i].val.ml);
-            } else {
-                /* we store unit for non-object stack slots */
-                ML_AllocWrite(stp->msp, stp->maxSaved+1+i, ML_unit);
-            }
-        }
-        rootObj = ML_Alloc(stp->msp, nRoots);
     }
 
     /* invoke the collector */
-    InvokeGCWithRoots (
-        stp->msp, gcLevel, (ml_val_t *)&stp->code, &rootObj, NIL(ml_val_t *));
+    roots[nRoots++] = (ml_val_t *)&stp->code;
+    InvokeGCWithRootArray (stp->msp, gcLevel, nRoots, roots);
 
-    /* restore the roots */
-    {
-        ml_val_t *p = (ml_val_t *)rootObj;
-
-        /* restore the saved array */
-        for (int i = 0;  i < stp->maxSaved;  ++i, p++) {
-            stp->saved[i] = *p;
-        }
-
-        /* restore the objects in the stack. */
-        for (int i = 0;  i <= stp->tos;  ++i, p++) {
-            if (stp->stk[i].kind == VK_OBJ) {
-                stp->stk[i].val.ml = *p;
-            }
-        }
-    }
+    FREE (roots);
 
 } /* GC */
 
