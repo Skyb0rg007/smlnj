@@ -1019,8 +1019,9 @@ fun elabSpec (spec, env, elements, slots, region) =
         let fun loop(nil,paths) = paths
               | loop(p::rest,paths) =
                   if localPath(SP.SPATH p,elements)
-		  then (LU.lookTyc(env,SP.SPATH p,error region);
-			loop(rest,(SP.SPATH p)::paths))
+		  then (case LU.lookTyc(env,SP.SPATH p,error region)
+			  of T.ERRORtyc => loop(rest,paths) (* reported *)
+			   | _ => loop(rest,(SP.SPATH p)::paths))
 		  else (error region EM.COMPLAIN
 		         ("nonlocal path in type sharing: " ^
 			  SP.toString(SP.SPATH p))
