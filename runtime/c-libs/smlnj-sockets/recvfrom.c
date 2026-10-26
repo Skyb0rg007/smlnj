@@ -39,18 +39,22 @@ ml_val_t _ml_Sock_recvfrom (ml_state_t *msp, ml_val_t arg)
 
     if (n < 0) {
 	return RAISE_SYSERR(msp, sts);
-    } else if (n == 0) {
-	return ML_string0;
     } else {
 	ml_val_t addr, res;
 
-        if (n < nbytes) {
-            /* we need to shrink the vector */
-            ML_ShrinkRaw (msp, vec, BYTES_TO_WORDS(n));
-        }
+	if (n == 0) {
+	  /* an empty datagram; we still have to return the sender's address */
+	    res = ML_string0;
+	}
+	else {
+	    if (n < nbytes) {
+		/* we need to shrink the vector */
+		ML_ShrinkRaw (msp, vec, BYTES_TO_WORDS(n));
+	    }
 
-        /* the header for the data vector */
-	SEQHDR_ALLOC (msp, res, DESC_string, vec, n);
+	    /* the header for the data vector */
+	    SEQHDR_ALLOC (msp, res, DESC_string, vec, n);
+	}
 
         /* allocate the address in the heap */
 	ml_val_t data = ML_CData (msp, addrBuf, addrLen);
