@@ -889,7 +889,7 @@ fun yyAction48 (strm, lastMatch : yymatch) = (yystrm := strm;
 fun yyAction49 (strm, lastMatch : yymatch) = (yystrm := strm;
       (err (!stringstart, yypos+1) WARN
                        "ill-formed (*#line...*) taken as comment" nullErrorBody;
-                     YYBEGIN A; continue()))
+                     YYBEGIN A; charlist := []; continue()))
 fun yyAction50 (strm, lastMatch : yymatch) = (yystrm := strm;
       (YYBEGIN ALC; continue()))
 fun yyAction51 (strm, lastMatch : yymatch) = (yystrm := strm;
