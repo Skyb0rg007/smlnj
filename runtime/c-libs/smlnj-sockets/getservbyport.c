@@ -25,6 +25,7 @@ ml_val_t _ml_NetDB_getservbyport (ml_state_t *msp, ml_val_t arg)
     else
 	proto = STR_MLtoC(OPTION_get(mlProto));
 
-    return _util_NetDB_mkservent (msp, getservbyport (REC_SELINT(arg, 0), proto));
+  /* getservbyport expects the port number in network byte order */
+    return _util_NetDB_mkservent (msp, getservbyport (htons(REC_SELINT(arg, 0)), proto));
 
 } /* end of _ml_NetDB_getservbyport */
