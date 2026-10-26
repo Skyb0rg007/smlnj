@@ -15,15 +15,19 @@
  * system argument (i.e., has the form "@SMLxxx" or "@SMLxxx=yyy").
  * If the command-line argument is a runtime-system argument, then
  * return TRUE, and copy the "xxx" part into option, and set arg to
- * point to the start of the "yyy" part.
+ * point to the start of the "yyy" part.  The option buffer must hold
+ * MAX_OPT_LEN characters; longer option names are truncated.
  */
 bool_t isRuntimeOption (char *cmdLineArg, char *option, char **arg)
 {
     char	*cp = cmdLineArg, c;
+    char	*optEnd = option + (MAX_OPT_LEN - 1);
 
     if ((*cp++ == '@') && (*cp++ == 'S') && (*cp++ == 'M') && (*cp++ == 'L')) {
-	while (((c = *cp++) != '\0') && (c != '='))
-	  *option++ = c;
+	while (((c = *cp++) != '\0') && (c != '=')) {
+	  if (option < optEnd)
+	    *option++ = c;
+	}
 	*option = '\0';
 	*arg = cp;
 	return TRUE;
