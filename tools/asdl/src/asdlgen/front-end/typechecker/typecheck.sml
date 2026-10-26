@@ -180,32 +180,32 @@ structure Typecheck : sig
       | checkTyDecl (cxt, env, SOME tyId, tyDcl) = let
           val SOME(dcl as AST.TyDcl{def, ...}) = TyId.bindingOf tyId
         (* check for recursive product types; reports an error and returns true
-         * if there is a recursive chain of product types.
+         * if there is a recursive chain of product types from the given fields
+         * back to tyId.  Note that the definition of tyId has not been set yet,
+         * so we start from its (checked) fields.
          *)
-          fun checkForRecTy tyId' = (case TyId.bindingOf tyId'
-                 of SOME(AST.TyDcl{def=ref(AST.ProdTy{fields}), ...}) => let
-                    (* check the type of a field *)
-                      fun chk {label, ty=AST.Typ(AST.LocalTy(AST.TyDcl{id, ...}), _)} = let
-                            fun chkId tyId'' = if TyId.same(tyId, tyId'')
-                                  then (
-                                    err (cxt, [
-                                        S "recursive product type '", S(TyId.nameOf tyId),
-                                        S "'"
-                                      ]);
-                                    true)
-                                  else checkForRecTy tyId''
-                            in
-                              chkId id
-                            end
-                        | chk _ = false
-                      in
-                        List.exists chk fields
-                      end
+          fun checkForRecTy fields = let
+              (* check the type of a field *)
+                fun chk {label, ty=AST.Typ(AST.LocalTy(AST.TyDcl{id, ...}), _)} =
+                      if TyId.same(tyId, id)
+                        then (
+                          err (cxt, [
+                              S "recursive product type '", S(TyId.nameOf tyId),
+                              S "'"
+                            ]);
+                          true)
+                        else (case TyId.bindingOf id
+                           of SOME(AST.TyDcl{def=ref(AST.ProdTy{fields}), ...}) =>
+                                checkForRecTy fields
 (* FIXME
-                  | SOME(AST.TyDcl{def=ref(AST.AliasTy ty), ...}) => ??
+                            | SOME(AST.TyDcl{def=ref(AST.AliasTy ty), ...}) => ??
 *)
-                  | _ => false
-                (* end case *))
+                            | _ => false
+                          (* end case *))
+                  | chk _ = false
+                in
+                  List.exists chk fields
+                end
         (* check if a constructor has already been defined in this scope *)
           fun checkCons (cxt, cons) = (case Env.findConstr (env, cons)
                  of SOME _ => (
@@ -267,7 +267,7 @@ structure Typecheck : sig
                   val fields' = checkFields (cxt, env, [], fields)
                   val rhs = AST.ProdTy{fields = fields'}
                   in
-                    if checkForRecTy tyId
+                    if checkForRecTy fields'
                       then NONE
                       else (
                         def := rhs;
