@@ -654,7 +654,11 @@ fun constrStr(transp, sign, str, strDec, strExp, evOp, tdepth, entEnv, rpath,
             val abstractStr = STR {sign=sign, rlzn=abstractRlzn, access=access, prim=prim}
             val _ = debugmsg "<<< constrStr[transp=false]"
             in
-              (A.SEQdec[strDec, matchedDec], abstractStr, matchedExp)
+              (* the entity expression has to abstract the matched
+               * structure as well, or a functor application, which
+               * evaluates it, would produce the transparent result *)
+              (A.SEQdec[strDec, matchedDec], abstractStr,
+               M.ABSstr(sign, matchedExp))
 	    end
           | ERRORstr => (A.SEQdec[strDec, matchedDec], ERRORstr, matchedExp)
         (* end case *))
