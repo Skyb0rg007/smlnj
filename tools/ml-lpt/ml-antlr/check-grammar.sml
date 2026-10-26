@@ -60,7 +60,7 @@ structure CheckGrammar : sig
     end
 
     fun flatten [] = []
-      | flatten ((_, Syn.IMPORT {filename, dropping}) :: ds) = let
+      | flatten ((span, Syn.IMPORT {filename, dropping}) :: ds) = let
 	  val dropSet = ASet.fromList (map (fn (_, s) => s) dropping)
 	  fun keep s = not (ASet.member (dropSet, s))
 	  fun shouldImport (_, Syn.KEYWORD _)		 = true
@@ -72,9 +72,17 @@ structure CheckGrammar : sig
 	    | shouldImport (_, Syn.REFCELL _)		 = true
 	    | shouldImport (_, Syn.RULE {lhs, ...})	 = keep lhs
 	    | shouldImport _				 = false
-	  val imp = case ParseFile.parse filename
-		     of SOME ds' => flatten ds'
-		      | NONE => []
+	  val imp = if OS.FileSys.access(filename, [OS.FileSys.A_READ])
+		then (case ParseFile.parse filename
+		   of SOME ds' => flatten ds'
+		    | NONE => []
+		  (* end case *))
+		else (
+		  Err.spanErr (span, [
+		      "imported file \"", String.toString filename,
+		      "\" does not exist or is unreadable"
+		    ]);
+		  [])
 	  in
 	    (List.filter shouldImport imp) @ flatten ds
 	  end
