@@ -200,6 +200,53 @@ structure ElabTop : ELABTOP =
 		 in (AS.SEQdec [AS.OPENdec strs', ds], nenv)
 		end
 
+	    | elab(dec as AbstypeDec _, env, top, region) =
+		let val {absyn=d, statenv=env'} =
+		      ElabMod.elabDecl{ast=dec, statenv=env, entEnv=EE.empty,
+				       context=EU.TOP, level=top, tdepth=DebIndex.top,
+				       epContext=EPC.initContext, path=IP.IPATH[],
+				       region=region,compInfo=compInfo}
+
+		    (* the body of the abstype may open structures, which binds
+		     * their components without giving them access paths of their
+		     * own.  As for a top-level open (see makeOpenDecls), we
+		     * redeclare these components, so that the backend exports
+		     * them like the other top-level bindings.
+		     *)
+		    fun isLocal (DA.LVAR _) = true
+		      | isLocal _ = false
+		    fun redecl ((name, B.VALbind(V.VALvar{access, ...})), dl) =
+			  if isLocal access then dl
+			  else ValDec([Vb{pat=VarPat[name], exp=VarExp[name],
+					  lazyp=false}],
+				      nil) :: dl
+		      | redecl ((name, B.CONbind(T.DATACON{rep=DA.EXN access, ...})), dl) =
+			  if isLocal access then dl
+			  else ExceptionDec [EbDef{exn=name, edef=[name]}] :: dl
+		      | redecl ((name, B.STRbind(M.STR{access, ...})), dl) =
+			  if isLocal access then dl
+			  else StrDec [Strb{name=name, def=VarStr[name],
+					    constraint=NoSig}] :: dl
+		      | redecl ((name, B.FCTbind(M.FCT{access, ...})), dl) =
+			  if isLocal access then dl
+			  else FctDec [Fctb{name=name, def=VarFct([name],NoSig)}] :: dl
+		      | redecl (_, dl) = dl
+		    val env' = SE.consolidate env'
+		 in case SE.fold redecl [] env'
+		     of [] => (d, env')
+		      | newDecs =>
+			  let val {absyn=ds, statenv=env''} =
+				ElabMod.elabDecl{ast=SeqDec newDecs,
+						 statenv=SE.atop(env', env),
+						 entEnv=EE.empty, context=EU.TOP,
+						 level=top, tdepth=DebIndex.top,
+						 epContext=EPC.initContext,
+						 path=IP.IPATH[], region=region,
+						 compInfo=compInfo}
+			   in (AS.SEQdec [d, ds], SE.consolidate(SE.atop(env'', env')))
+			  end
+		end
+
 	    | elab(dec, env, top, region) =
 		let val _ = debugmsg "--elabTop.elab[dec]: calling ElabMod.elabDecl"
 		    val {absyn=d, statenv=env'} =
