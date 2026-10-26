@@ -14,6 +14,9 @@
 
 structure FRepToReal64 : sig
 
+    (* convert a float_rep value to the nearest 64-bit real; the value is normalized
+     * using `FloatRep.normalize64` first.
+     *)
     val cvt : FloatRep.float_rep -> real
 
   end = struct
@@ -21,6 +24,7 @@ structure FRepToReal64 : sig
     structure W = InlineT.Word
     structure W64 = InlineT.Word64
     structure Int = IntImp
+    structure IntInf = IntInfImp
 
     datatype float_rep = datatype FloatRep.float_rep
 
@@ -352,7 +356,37 @@ structure FRepToReal64 : sig
           val bits = W64.orb(bits, W64.fromInt ieee_e2)
           val bits = W64.orb(W64.lshift(bits, W.fromInt kMantissaBits), ieee_m2)
           in
-            fromBits bits
+            (bits, ieee_e2, ieee_m2)
+          end
+
+    (* `roundLong (f, (bits, ieee_e2, ieee_m2))` corrects the rounding of a number
+     * `f` that has more digits than `FloatRep.normalize64` keeps.  The triple
+     * is the result of `fromDecimalRep` for the truncated digits of `f`, which is
+     * either the correctly rounded value of `f` or the next value toward zero
+     * from it.  We decide which by comparing `f` with the point halfway between
+     * the truncated result and the next larger magnitude using exact arithmetic.
+     *)
+    fun roundLong (f : FloatRep.decimal_rep, (bits, ieee_e2, ieee_m2)) = let
+          (* the magnitude of the truncated result is m * 2^e *)
+          val (m, e) = if (ieee_e2 = 0)
+                then (ieee_m2, 1 - kExpBias - kMantissaBits)
+                else (ieee_m2 + W64.lshift(0w1, W.fromInt kMantissaBits),
+                  ieee_e2 - kExpBias - kMantissaBits)
+          (* the halfway point is h * 2^(e-1) *)
+          val h = IntInf.+(IntInf.*(2, W64.toLargeInt m), 1)
+          (* the magnitude of `f` is d * 10^(#exp f) *)
+          val d = List.foldl
+                (fn (dig, d) => IntInf.+(IntInf.*(d, 10), Int.toLarge dig))
+                  0 (#digits f)
+          fun scale (n, k, p) = if (p > 0) then IntInf.*(n, IntInf.pow(k, p)) else n
+          val d' = scale (scale (d, 10, #exp f), 2, 1 - e)
+          val h' = scale (scale (h, 10, ~(#exp f)), 2, e - 1)
+          in
+            case IntInf.compare (d', h')
+             of LESS => bits
+              | EQUAL => if (W64.andb(m, 0w1) = 0w0) then bits else W64.+(bits, 0w1)
+              | GREATER => W64.+(bits, 0w1)
+            (* end case *)
           end
 
     val posInf = fromBits 0wx7FF0000000000000
@@ -368,7 +402,19 @@ structure FRepToReal64 : sig
       | cvt (NaN true) = negNaN
       | cvt (Zero false) = posZero
       | cvt (Zero true) = negZero
-      | cvt (Normal f) = fromDecimalRep f
-      | cvt (Subnormal f) = fromDecimalRep f
+      | cvt (Normal f) = cvtDecimal f
+      | cvt (Subnormal f) = cvtDecimal f
+
+    and cvtDecimal f = let
+          fun cvt' f' = if (#nDigits f' < #nDigits f)
+                then fromBits (roundLong (f, fromDecimalRep f'))
+                else fromBits (#1 (fromDecimalRep f'))
+          in
+            case FloatRep.normalize64 (Normal f)
+             of Normal f' => cvt' f'
+              | Subnormal f' => cvt' f'
+              | frep => cvt frep
+            (* end case *)
+          end
 
   end
