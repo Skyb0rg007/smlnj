@@ -9,6 +9,8 @@ struct
 local
 
   structure DA = Access
+  structure T = Types
+  structure AS = Absyn
   structure IM = Andor.IM
   open MCCommon
 
@@ -33,6 +35,11 @@ local
    *  NOTE: This belongs in TypesUtil. *)
   fun signToWidth (DA.CSIG (i, j)) = i+j
     | signToWidth DA.CNIL = Types.infinity
+
+  (* isExnCase : variant -> bool
+   *  is the discriminator of the variant an exception constructor? *)
+  fun isExnCase (AS.DATAcon (T.DATACON{rep, ...}, _), _, _) = DA.isExn rep
+    | isExnCase _ = false
 
 in
 
@@ -141,6 +148,9 @@ let (* val relmapRef = ref relmap
 	  if RS.isEmpty live then FAIL else  (* no live rules, raise MATCH/BIND/unhandled exception *)
 	  (case bestOrNode(nodeQ, live)
 	     of (SOME(node as (OR{id, path, sign, cases, defaults}), remainder)) =>
+		 if List.exists isExnCase cases
+		 then mkExnSwitch (node, remainder, live)
+		 else
 		 let val casesRules = foldl RS.union RS.empty (map #2 cases) (* union of caserules *)
 		     val casesLive = RS.intersection (casesRules, live)  (* subset of live *)
 		     val dtCases = mkcases (cases, remainder, defaults, live)
@@ -154,9 +164,45 @@ let (* val relmapRef = ref relmap
 			      (* default needed to cover con variants that were absent or killed *)
 		 in SWITCH {id=id, path=path, sign=sign, cases=dtCases, defaultOp=defaultDtOp, live = stillLive}
 		 end
+	      | SOME _ => bug "mkDecTree: OR node expected"
 	      | NONE => RHS (RS.minItem live))
 		 (* no further choices => no more rules can be eliminated. In particular,
 		  * the minimum ruleno in live can't be eliminated, so it is selected. *)
+
+    (* mkExnSwitch : andor[OR] * nodeQueue * ruleset -> dectree
+     *  Distinct exception constructors can denote the same exception (e.g., after
+     *  "exception E2 = E1"), so the variants of an exception OR node are not mutually
+     *  exclusive and we cannot dispatch on all of them in a single switch.  Instead,
+     *  we test the constructor con of the first live rule that discriminates at this
+     *  node, considering only the rules that precede the first live rule with a
+     *  different constructor (the "segment").  If none of these rules matches, we
+     *  continue (via CHAIN) with the remaining rules, which test the node again. *)
+    and mkExnSwitch (node as OR{id, path, sign, cases, defaults}, remainder, live) =
+	let val caseRules = RS.intersection (foldl RS.union RS.empty (map #2 cases), live)
+	    val r0 = RS.minItem caseRules
+	    val (con, rules, subcase) =
+		(case List.find (fn (_, rules, _) => RS.member (rules, r0)) cases
+		   of SOME aCase => aCase
+		    | NONE => bug "mkExnSwitch: no case for rule")
+	    val otherRules = RS.difference (caseRules, rules)
+	    val (segment, rest) =
+		if RS.isEmpty otherRules then (live, RS.empty)
+		else let val k = RS.minItem otherRules
+		      in (RS.filter (fn r => r < k) live, RS.filter (fn r => r >= k) live)
+		     end
+	    val yesTree =
+		(case subcase
+		   of CONST => mkDecTree (remainder, segment)
+		    | DCARG andor => mkDecTree (accessible (andor, remainder), segment)
+		    | VELEMS _ => bug "mkExnSwitch: VELEMS")
+	    val noTree = mkDecTree (remainder, RS.intersection (segment, defaults))
+	    val switch = SWITCH {id=id, path=path, sign=sign, cases=[(con, yesTree)],
+				 defaultOp=SOME noTree, live=segment}
+	 in if RS.isEmpty rest
+	    then switch
+	    else CHAIN (switch, mkDecTree (insertQ (node, remainder), rest))
+	end
+      | mkExnSwitch _ = bug "mkExnSwitch: OR node expected"
 
     (* mkcases : variant list * nodeQueue * (defaults: ruleset) * (live: ruleset) -> (con * dectree) list
      *  ASSERT: (1) length of result (decTree) cases <= length of input (OR-node) cases.
@@ -203,9 +249,12 @@ fun decTreeStats (dectree: dectree): decTreeStats =
 	val failures = ref 0
 	val choiceTotal = ref 0
 	val choiceDist = ref NodeMap.empty
-	fun scanTree (RHS n) = (rules := RS.add (!rules, n)) 
-	  | scanTree FAIL = (failures := !failures + 1)
-	  | scanTree (SWITCH {id, cases, defaultOp, ...}) =
+	(* inFirst is true in the first part of a CHAIN, where FAIL continues the match *)
+	fun scanTree inFirst dectree = (case dectree
+	   of RHS n => (rules := RS.add (!rules, n))
+	    | FAIL => if inFirst then () else (failures := !failures + 1)
+	    | CHAIN (first, next) => (scanTree true first; scanTree inFirst next)
+	    | SWITCH {id, cases, defaultOp, ...} =>
 	    (choiceTotal := !choiceTotal + 1;
 	     choiceDist :=
 		let val nmap = !choiceDist
@@ -215,9 +264,9 @@ fun decTreeStats (dectree: dectree): decTreeStats =
 			  | SOME k => k+1
 		in NodeMap.insert(nmap, id, newcount)
 		end;
-	     app (fn (_, dt) => scanTree dt) cases;
-	     Option.app scanTree defaultOp)
-    in scanTree dectree;
+	     app (fn (_, dt) => scanTree inFirst dt) cases;
+	     Option.app (scanTree inFirst) defaultOp))
+    in scanTree false dectree;
        {rulesUsed = !rules,
 	failures = !failures,
 	choiceTotal = !choiceTotal,

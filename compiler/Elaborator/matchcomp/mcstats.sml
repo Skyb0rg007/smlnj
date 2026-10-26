@@ -78,9 +78,12 @@ fun collectDectreeStats (dectree: dectree): unit =
 	val countRHS = ref 0
 	val countSWITCH = ref 0
 	val choiceDist = ref NodeMap.empty
-	fun scanTree (RHS n) = (incr countRHS; rules := RS.add (!rules, n)) 
-	  | scanTree FAIL = incr countFAIL
-	  | scanTree (SWITCH {id, cases, defaultOp, ...}) =
+	(* inFirst is true in the first part of a CHAIN, where FAIL continues the match *)
+	fun scanTree inFirst dectree = (case dectree
+	   of RHS n => (incr countRHS; rules := RS.add (!rules, n))
+	    | FAIL => if inFirst then () else incr countFAIL
+	    | CHAIN (first, next) => (scanTree true first; scanTree inFirst next)
+	    | SWITCH {id, cases, defaultOp, ...} =>
 	    (incr countSWITCH;
 	     choiceDist :=
 		let val nmap = !choiceDist
@@ -90,9 +93,9 @@ fun collectDectreeStats (dectree: dectree): unit =
 			  | SOME k => k+1
 		in NodeMap.insert(nmap, id, newcount)
 		end;
-	     app scanTree (map #2 cases);
-	     Option.app scanTree defaultOp)
-    in scanTree dectree;
+	     app (scanTree inFirst) (map #2 cases);
+	     Option.app (scanTree inFirst) defaultOp))
+    in scanTree false dectree;
        dectreeStats :=
          SOME {rulesUsed = !rules,
 	       numFAIL = !countFAIL,
