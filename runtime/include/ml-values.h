@@ -34,7 +34,7 @@
 #define PTR_CAST(ty, p)		((ty)(p))
 
 #define INT_MLtoC(n)		(((Int_t)(n)) >> 1)
-#define INT_CtoML(n)		((ml_val_t)(Int_t)(2*(n) + 1))
+#define INT_CtoML(n)		((ml_val_t)(2*(Int_t)(n) + 1))
 #define PTR_MLtoC(ty,p)		PTR_CAST(ty *, p)
 #define PTR_CtoML(p)		PTR_CAST(ml_val_t, p)
 #else
