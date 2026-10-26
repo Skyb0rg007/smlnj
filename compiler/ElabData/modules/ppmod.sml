@@ -271,6 +271,14 @@ and ppElement (env,depth,entityEnvOp) ppstrm (sym, spec) =
 	    closeBox ppstrm)
 
 	| M.TYCspec{entVar,info} =>
+	   let (* the actual tycon of a datatype replication has the name
+		* of the replicated datatype; print it under the name of
+		* this component *)
+	       fun named (T.GENtyc{stamp,arity,eq,kind,stub,...}) =
+		     T.GENtyc{stamp=stamp, arity=arity, eq=eq, kind=kind,
+			      stub=stub, path=IP.IPATH[sym]}
+		 | named tyc = tyc
+	   in
 	   (case info
 	      of M.RegTycSpec{spec,repl,scope} =>
 		 (openHVBox ppstrm (PP.Rel 0);
@@ -282,9 +290,7 @@ and ppElement (env,depth,entityEnvOp) ppstrm (sym, spec) =
 		       | SOME eenv =>
 			   (case EE.look(eenv,entVar)
 			     of M.TYCent tyc =>
-				if repl then
-				    ppReplBind ppstrm (tyc,env)
-				else ppTycBind ppstrm (tyc,env)
+				ppTycBind ppstrm (named tyc,env)
 			      | M.ERRORent => pps ppstrm "<ERRORent>"
 			      | _ => bug "ppElements:TYCent"));
 		  closeBox ppstrm)
@@ -299,10 +305,11 @@ and ppElement (env,depth,entityEnvOp) ppstrm (sym, spec) =
 		      | SOME eenv =>
 			 (case EE.look(eenv,entVar)
 			    of M.TYCent tyc =>
-				 ppTycBind ppstrm (tyc,env)
+				 ppTycBind ppstrm (named tyc,env)
 			     | M.ERRORent => pps ppstrm "<ERRORent>"
 			     | _ => bug "ppElements:TYCent");
 		  closeBox ppstrm))
+	   end
 
 	| M.VALspec{spec=typ,...} =>
 	   (openHOVBox ppstrm (PP.Rel 4);
