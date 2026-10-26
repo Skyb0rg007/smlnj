@@ -281,7 +281,11 @@ structure Random :> RANDOM =
             (* use IntInf arithmetic to avoid overflow *)
             val n = W64.fromLargeInt(IntInf.fromInt j - IntInf.fromInt i + 1)
             in
-              fn rs => i + W64.toInt(W64.mod(randNativeWord rs, n))
+              (* the offset from `i` may not fit in an `int`, so we add it using
+               * word arithmetic; the sum is in the range [i..j].
+               *)
+              fn rs => Word.toIntX(
+                Word.fromInt i + Word.fromLarge(W64.toLarge(W64.mod(randNativeWord rs, n))))
             end
 
   end
