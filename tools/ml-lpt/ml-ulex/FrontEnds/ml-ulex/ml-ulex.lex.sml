@@ -451,9 +451,17 @@ fun yyAction37 (strm, lastMatch : yymatch) = let
         yystrm := strm;  Tok.ID yytext
       end
 fun yyAction38 (strm, lastMatch : yymatch) = let
+      val yycolno = ref(yygetcolNo(!(yystrm)))
+      val yylineno = ref(yygetlineNo(!(yystrm)))
       val yytext = yymktext(strm)
       in
-        yystrm := strm;  Tok.INT (valOf (Int.fromString yytext))
+        yystrm := strm;
+         Tok.INT (valOf (Int.fromString yytext))
+		    handle Overflow => (print (concat [
+		      Int.toString (!yylineno), ".",
+		      Int.toString (!yycolno), ": integer too large '",
+		      yytext, "'\n"]);
+		      Tok.BOGUS)
       end
 fun yyAction39 (strm, lastMatch : yymatch) = (yystrm := strm;  Tok.COMMA)
 fun yyAction40 (strm, lastMatch : yymatch) = (yystrm := strm;
