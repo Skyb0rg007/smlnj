@@ -50,7 +50,7 @@
 %states S;
 
 <INITIAL>[ \t\n\r]+		=> ( T.WHITE );
-<INITIAL>";"[^\n\r]*[\n\r]+	=> ( skip() (* comment *));
+<INITIAL>";"[^\n\r]*		=> ( skip() (* comment *));
 
 <INITIAL>"'"			=> ( T.QUOTE );
 <INITIAL>"("			=> ( T.DELIM (T.PAREN, T.OPEN) );
