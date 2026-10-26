@@ -56,7 +56,7 @@
  *)
 %states INITIAL COM TAG LIT1 LIT2 DOCTYPE;
 
-<INITIAL>"<!--"			=> (addText yytext; YYBEGIN COM; continue());
+<INITIAL>"<!--"			=> (text := [yytext]; YYBEGIN COM; continue());
 <COM>"-->"			=> (addText yytext; YYBEGIN INITIAL; T.COM(textToString()));
 <COM>.				=> (addText yytext; continue());
 
@@ -80,8 +80,8 @@
 <TAG>"="			=> (T.SYM_EQ);
 <TAG,DOCTYPE>{idstartchr}{idchr}*
 				=> (T.ID yytext);
-<TAG>"\""			=> (YYBEGIN LIT1; continue());
-<TAG>"'"			=> (YYBEGIN LIT2; continue());
+<TAG>"\""			=> (text := []; YYBEGIN LIT1; continue());
+<TAG>"'"			=> (text := []; YYBEGIN LIT2; continue());
 
 <LIT1>"\""			=> (YYBEGIN TAG; T.LIT(textToString()));
 <LIT2>"\'"			=> (YYBEGIN TAG; T.LIT(textToString()));

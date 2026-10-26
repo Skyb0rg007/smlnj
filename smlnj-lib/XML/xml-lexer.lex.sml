@@ -140,7 +140,7 @@ structure XMLLexer
 fun yyAction0 (strm, lastMatch : yymatch) = let
       val yytext = yymktext(strm)
       in
-        yystrm := strm;  addText yytext; YYBEGIN COM; continue()
+        yystrm := strm;  text := [yytext]; YYBEGIN COM; continue()
       end
 fun yyAction1 (strm, lastMatch : yymatch) = let
       val yytext = yymktext(strm)
@@ -188,9 +188,9 @@ fun yyAction17 (strm, lastMatch : yymatch) = let
         yystrm := strm;  T.ID yytext
       end
 fun yyAction18 (strm, lastMatch : yymatch) = (yystrm := strm;
-       YYBEGIN LIT1; continue())
+       text := []; YYBEGIN LIT1; continue())
 fun yyAction19 (strm, lastMatch : yymatch) = (yystrm := strm;
-       YYBEGIN LIT2; continue())
+       text := []; YYBEGIN LIT2; continue())
 fun yyAction20 (strm, lastMatch : yymatch) = (yystrm := strm;
        YYBEGIN TAG; T.LIT(textToString()))
 fun yyAction21 (strm, lastMatch : yymatch) = (yystrm := strm;
