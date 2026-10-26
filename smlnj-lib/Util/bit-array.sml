@@ -798,7 +798,10 @@ structure BitArray :> BIT_ARRAY =
 
   (* additional operations from Basis Library proposal 2015-003 *)
     fun fromVector (Vector.BA{nbits, bits}) = let
-	  val newBits = Unsafe.Word8Array.create(Word8Array.length bits)
+	(* NOTE: we do not use Unsafe.Word8Array.create, since it does not
+	 * support zero-length arrays, which empty bit arrays have.
+	 *)
+	  val newBits = Word8Array.array(Word8Array.length bits, 0w0)
 	  in
 	    Word8Array.copy{di = 0, dst = newBits, src = bits};
 	    BA{nbits = nbits, bits = newBits}
