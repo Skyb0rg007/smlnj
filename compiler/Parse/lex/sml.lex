@@ -237,6 +237,10 @@ bad_escape="\\"[\000-\008\011\012\014-\031 !#$%&'()*+,\-./:;<=>?@A-Z\[\]_`c-eg-m
 <L,LLC,LLCQ>.    => (err (!stringstart, yypos+1) WARN
                        "ill-formed (*#line...*) taken as comment" nullErrorBody;
                      YYBEGIN A; charlist := []; continue());
+<L,LLC>{eol}     => (err (!stringstart, yypos) WARN
+                       "ill-formed (*#line...*) taken as comment" nullErrorBody;
+                     SourceMap.newline sourceMap yypos;
+                     YYBEGIN A; charlist := []; continue());
 <A>"(*)"	=> (YYBEGIN ALC; continue());
 <ALC>{eol}	=> (SourceMap.newline sourceMap yypos; YYBEGIN A; continue());
 <ALC>.		=> (continue());
