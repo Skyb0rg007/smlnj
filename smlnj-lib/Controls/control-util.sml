@@ -9,7 +9,8 @@ structure ControlUtil : CONTROL_UTIL =
 
     structure Cvt = struct
         val int = { tyName = "int",
-		    fromString = Int.fromString,
+		  (* a value that is too large is not a valid int *)
+		    fromString = fn s => (Int.fromString s handle Overflow => NONE),
 		    toString = Int.toString }
         val bool = { tyName = "bool",
 		     fromString = fn s => (case String.map Char.toUpper s
