@@ -328,10 +328,12 @@ structure TypesUtil : TYPESUTIL =
 		   | _ => false)
 	      | eq(ty as CONty(tycon, args), ty' as CONty(tycon', args')) =
 		  if eqTycon(tycon, tycon') then
-		     (case tycon
-			of DEFtyc{strict,...} =>
+		     (case (tycon, tycon')
+			of (DEFtyc{strict,...}, DEFtyc _) =>
 			   (* since tycons are equal, both are DEFtycs with
-			    * the same arity and strict field values *)
+			    * the same arity and strict field values (an
+			    * ERRORtyc is equal to any tycon, so it is
+			    * handled below) *)
 			   let fun eqargs([],[],[]) = true
 				 | eqargs(true::ss,ty1::rest1,ty2::rest2) =
 				     equalType(ty1,ty2) andalso eqargs(ss,rest1,rest2)
