@@ -260,6 +260,14 @@ val ppDectree =
 	    (PP.openHBox ppstrm;
 	     PP.string ppstrm "FAIL";
 	     PP.closeBox ppstrm)
+	  | ppDec ppstrm (CHAIN (first, next)) =
+	    (PP.openVBox ppstrm (PP.Abs 0);
+	     ppDec ppstrm first;
+	     PP.cut ppstrm;
+	     PP.string ppstrm "ELSE";
+	     PP.cut ppstrm;
+	     ppDec ppstrm next;
+	     PP.closeBox ppstrm)
 	and ppSwitch ppstrm (cases,defaultOp) =
             (PP.openVBox ppstrm (PP.Abs 3);
 	     PU.ppvseq ppstrm 0 "" ppCase cases;

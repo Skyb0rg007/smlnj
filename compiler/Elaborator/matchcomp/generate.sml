@@ -163,7 +163,8 @@ fun generate (decTree: MC.dectree, ruleMap: Preprocessing.ruleMap, allRules: rul
  *     cases. This fresh mvar is not in the pathEnv! Yet! But it will be added to the pathenv used
  *     to generate code for the vector elements.*)
 
-    (* genDecTree: decTree * pathenv -> AS.exp
+    (* genDecTree: decTree * pathenv * AS.exp option -> AS.exp
+     *   the optional expression is evaluated in place of FAIL (see MC.CHAIN)
      *   pathenvs are grown by adding new path --> var bindings at:
      *     (1) each non-constant datacon case for the decon[datacon] of the value
      *     (2) each vector switch node in the dectree, unless that node's is already mapped by pathenv,
@@ -172,7 +173,7 @@ fun generate (decTree: MC.dectree, ruleMap: Preprocessing.ruleMap, allRules: rul
      *   the PL.DATAcon in Translate..conToCon (and eventually (where?) bound to the decon[datacon] of
      *   the corresponding value).
      *)
-    fun genDecTree (decTree, pathenv) =
+    fun genDecTree (decTree, pathenv, failK) =
 	(case decTree
 	   of MC.SWITCH {path, sign, cases, defaultOp,   ...} =>
 		let val subject =  (* exp denoting switch scrutinee (subject) value *)
@@ -198,14 +199,14 @@ fun generate (decTree: MC.dectree, ruleMap: Preprocessing.ruleMap, allRules: rul
 					       if newvar (* vecmvar is a new mvar to be bound to vector *)
 					       then MU.bindPath (pathenv, path, vecmvar)
 					       else pathenv
-					in AS.SRULE (intCon n, NONE, genDecTree(decTree, newPathenv))
+					in AS.SRULE (intCon n, NONE, genDecTree(decTree, newPathenv, failK))
 				       end
 				   | genVCase _ = bug "genDecTree:genVCase: not a vector-length case"
 				 val switchCases = map genVCase cases
 				 val default' =
 				     (case defaultOp
 				       of NONE => bug "genDecTree: vector switch with no default"
-					| SOME dectree => genDecTree (dectree, pathenv))
+					| SOME dectree => genDecTree (dectree, pathenv, failK))
 			     in if newvar
 				then AS.LETVexp (vecmvar, subject,  (* let-binding vector variable *)
 						 AS.VSWITCHexp (EU.varToExp vecmvar, elemTy, switchCases, default'))
@@ -214,25 +215,38 @@ fun generate (decTree: MC.dectree, ruleMap: Preprocessing.ruleMap, allRules: rul
 			| _ => (* other, non-vector, switches *)
 			    let fun genCase (con, decTree) =
 				    if AU.constantCon con
-				    then AS.SRULE (con, NONE, genDecTree(decTree, pathenv))
+				    then AS.SRULE (con, NONE, genDecTree(decTree, pathenv, failK))
 					     (* saysnl ["genDecTree.genCase:con = ", conToString con, "\n"] *)
 				    else let (* val _ = saysnl ["genDecTree.genCase:con = ", AU.conToString con] *)
 					     val deconMvar = MU.mkMvar() (* new decon variable denoting decon[con] result *)
 					     val newPathenv = MU.bindPath (pathenv, P.addLink(P.DC con, path), deconMvar)
 					       (* the new path binding designates the decon for this case *)
-					  in AS.SRULE (con, SOME deconMvar, genDecTree(decTree, newPathenv))
+					  in AS.SRULE (con, SOME deconMvar, genDecTree(decTree, newPathenv, failK))
 					 end
-				val defaultOp' = Option.map (fn dt => genDecTree (dt, pathenv)) defaultOp
+				val defaultOp' = Option.map (fn dt => genDecTree (dt, pathenv, failK)) defaultOp
 			     in AS.SWITCHexp (subject, map genCase cases, defaultOp')
 				  (* not a vector length switch *)
 			    end)
 		end
             | MC.FAIL =>
-		let val failExp =
-			(case failExnOp
-			  of NONE => EU.varToExp rootvar
-			   | SOME datacon => AS.CONexp(datacon, nil))
-		 in AS.RAISEexp (failExp, rhsTy)
+		(case failK
+		   of SOME exp => exp  (* continue with the rest of a CHAIN *)
+		    | NONE =>
+			let val failExp =
+				(case failExnOp
+				  of NONE => EU.varToExp rootvar
+				   | SOME datacon => AS.CONexp(datacon, nil))
+			 in AS.RAISEexp (failExp, rhsTy)
+			end)
+	    | MC.CHAIN (first, next) =>
+		(* bind the second dectree to a function that is called where the first fails *)
+		let val resTy = TypesUtil.dePoly rhsTy
+		    val nextVar = V.newVALvar (Symbol.varSymbol "mcnext", BT.--> (BT.unitTy, resTy))
+		    val argVar = V.newVALvar (Symbol.varSymbol "marg", BT.unitTy)
+		    val nextFn = AS.FNexp ([AS.RULE (AS.VARpat argVar, genDecTree (next, pathenv, failK))],
+					   BT.unitTy, resTy)
+		    val callNext = AS.APPexp (EU.varToExp nextVar, AU.TUPLEexp nil)
+		 in AS.LETVexp (nextVar, nextFn, genDecTree (first, pathenv, SOME callNext))
 		end
 	    | MC.RHS ruleno => genRHS (ruleno, pathenv)
 	        (* dispatch to (i.e. call) appropriate rhs function for this ruleno, with argument _expressions_
@@ -240,7 +254,7 @@ fun generate (decTree: MC.dectree, ruleMap: Preprocessing.ruleMap, allRules: rul
 	(* end case *))
         (* end genDecTree *)
 
-    val matchExp = genDecTree (decTree, pathenv0)
+    val matchExp = genDecTree (decTree, pathenv0, NONE)
 
  in (matchExp, rootvar)
 end (* fun generate *)

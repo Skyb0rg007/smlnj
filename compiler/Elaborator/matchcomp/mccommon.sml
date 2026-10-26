@@ -94,6 +94,9 @@ datatype dectree
        live: ruleset}   (* rules live at this node, used to qualify relevant rules for mvar binding *)
   | RHS of ruleno  (* match succeeds: martial variable values and dispatch to rhs(ruleno) *)
   | FAIL           (* match fails, raise Match/Bind exn, or reraise unmatched exn in handler *)
+  | CHAIN of dectree * dectree
+      (* try the first dectree; where it reaches FAIL, continue with the second one.
+       * Used for exception constructors, which are not mutually exclusive. *)
 
 end (* toplevel local *)
 end (* structure MCCommon *)
