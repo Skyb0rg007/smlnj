@@ -95,8 +95,13 @@ structure TestCnv : sig
  * but the `TRUNC` causes the sign extension to be masked out for negative numbers.
  * (see Issue #476)
  *)
-		      C.ARITH(P.TEST{from=from, to=tty}, [v], x', C.NUMt toTy,
-                        C.APP(jk', [C.VAR x']))))))
+		      if (from = tty)
+		      (* `TEST(tty, tty)` is the identity, which the code generator
+		       * does not support
+		       *)
+			then C.APP(jk', [v])
+			else C.ARITH(P.TEST{from=from, to=tty}, [v], x', C.NUMt toTy,
+                          C.APP(jk', [C.VAR x']))))))
 	      end
 	    else bug "TEST with unexpected precisions"
       | test _ = bug "TEST with bogus arguments"
