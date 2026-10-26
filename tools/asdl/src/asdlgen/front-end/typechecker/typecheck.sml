@@ -294,14 +294,23 @@ structure Typecheck : sig
           val fields' = attribs @ List.mapi (fn (i, fld) => chkField (cxt, i, fld)) fields
           fun isLabeled {label=AST.Lab _, ty} = true
             | isLabeled _ = false
+        (* check for duplicate field labels *)
+          fun chkDups ([], _) = ()
+            | chkDups ({label=AST.Lab lab, ty}::flds, seen) =
+                if List.exists (fn lab' => lab = lab') seen
+                  then (
+                    err (cxt, [S "duplicate field label '", S lab, S "'"]);
+                    chkDups (flds, seen))
+                  else chkDups (flds, lab::seen)
+            | chkDups (_::flds, seen) = chkDups (flds, seen)
           in
-(* FIXME: check for duplicate field names *)
           (* the fields (including any attributes) must either all be labeled or
            * all be unlabeled.
            *)
             if List.all isLabeled fields' orelse not(List.exists isLabeled fields')
               then ()
               else err (cxt, [S "fields must either all be labeled or all be unlabeled"]);
+            chkDups (fields', []);
             fields'
           end
 
