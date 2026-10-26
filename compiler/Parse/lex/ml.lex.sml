@@ -885,7 +885,7 @@ fun yyAction68 (strm, lastMatch : yymatch) = (yystrm := strm;
       (SourceMap.newline sourceMap yypos; continue()))
 fun yyAction69 (strm, lastMatch : yymatch) = (yystrm := strm; (continue()))
 fun yyAction70 (strm, lastMatch : yymatch) = (yystrm := strm;
-      (YYBEGIN S; stringstart := yypos; continue()))
+      (YYBEGIN S; continue()))
 fun yyAction71 (strm, lastMatch : yymatch) = (yystrm := strm;
       (err (!stringstart,yypos) COMPLAIN "unclosed string"
 		        nullErrorBody;
