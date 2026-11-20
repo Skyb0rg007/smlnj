@@ -297,22 +297,18 @@ fun check phase envs lexp = let
 	    in typeIn venv' e
 	    end
 	| FIX (fds,e) => let
-            val isfct = false
-	    fun extEnv (({cconv=FR.CC_FCT, ...}, _, _, _), _) =
-                  bug "unexpected case in extEnv"
-              | extEnv (({isrec,cconv,...}, lv, vts, _) : fundec, ve) =
-	      case (isrec, isfct)
-	       of (SOME (lts,_), false) => let
+	    (* NOTE: recursive functors (cconv = CC_FCT) are allowed; they are
+	     * produced by the translation of polymorphically recursive functions
+	     * (see polyRecWrap in FLINT/trans/translate.sml). *)
+	    fun extEnv (({isrec,cconv,...}, lv, vts, _) : fundec, ve) =
+	      case isrec
+	       of SOME (lts,_) => let
 		    val lt = ltArrow (le,"FIX") (cconv,
                                                  map #2 vts, lts)
 		    in LB.ltInsert (ve,lv,lt,d)
 		    end
-		| _ => let
-		    val msg =
-		      if isfct then "recursive functor "
-		      else "a non-recursive function "
-		    in errMsg (le, "in FIX: " ^ msg ^ LV.lvarName lv, ve)
-		    end
+		| NONE =>
+		    errMsg (le, "in FIX: a non-recursive function " ^ LV.lvarName lv, ve)
 	    val venv' = foldl extEnv venv fds
 	    fun chkDcl (({isrec = NONE, ...}, _, _, _) : fundec) = ()
 	      | chkDcl (fd as ({isrec = SOME (lts,_), ...}, _, _, _)) = let

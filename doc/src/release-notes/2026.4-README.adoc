@@ -42,6 +42,25 @@ FILES::
 
 === Compiler
 
+* Added support for *polymorphic recursion* (a language extension).  When the
+  type of a recursive function is completely determined by explicit type
+  annotations before its body is type checked, recursive occurrences of the
+  function in the body may be instantiated at different types.  For example,
++
+[source,sml]
+----
+datatype 'a seq = Nil | Cons of 'a * ('a * 'a) seq
+val rec size : 'a seq -> int = fn
+    Nil => 0
+  | Cons (_, s) => 1 + 2 * size s
+----
++
+The annotation may be a constraint on the variable (as above), a constraint
+on the `fn` expression, or, for single-argument `fun` declarations, annotations
+on the argument pattern and the result.  Curried `fun` declarations are not
+yet supported; use the `val rec` form instead.  Recursive calls at the
+function's own type are compiled as before.
+
 === CM
 
 === MLRISC

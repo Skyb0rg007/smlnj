@@ -384,6 +384,54 @@ fun generalizeTy(V.VALvar{typ,path,btvs,...}, userbound: tyvar list,
 
   | generalizeTy _ = bug "generalizeTy - arg not a VALvar"
 
+(* polyRecType : ty * tyvar list -> (ty * tyvar list) option
+ * Support for polymorphic recursion.  Given the (monomorphic) type of a val rec
+ * bound variable, after it has been unified with an explicit type constraint, and
+ * the user-bound type variables of the declaration, compute the polymorphic type
+ * that generalizeTy will eventually assign to the variable, abstracting over the
+ * user-bound type variables that occur in the type.  Returns NONE if the type is
+ * not completely determined by the constraint (i.e., it contains metavariables,
+ * flex record types, overloaded type variables, etc.) or if the result would not
+ * be polymorphic.  Otherwise, returns the POLYty along with the abstracted type
+ * variables in IBOUND-index order.
+ * NOTE: the traversal order must be the same as that of gen in generalizeTy,
+ * since the order determines the IBOUND indices and the order of the generalized
+ * tyvars (btvs).  The caller checks that the results agree. *)
+fun polyRecType (ty: ty, userbound: tyvar list) : (ty * tyvar list) option =
+    let exception Incomplete
+	fun localUbound tv = List.exists (fn tv' => eqTyvar(tv,tv')) userbound
+	val index = ref 0
+	val sign = ref ([]: Types.polysign)
+	val menv = ref ([]: (tyvar * ty) list)
+	fun lookup tv =
+	    Option.map #2 (List.find (fn (tv',_) => eqTyvar(tv,tv')) (!menv))
+	fun abs ty =
+	    case ty
+	      of VARty(ref(INSTANTIATED ty)) => abs ty
+	       | VARty(tv as ref(UBOUND{eq,...})) =>
+		   if localUbound tv
+		   then (case lookup tv
+			   of SOME ty' => ty'
+			    | NONE =>
+				let val new = IBOUND(!index)
+				 in index := !index + 1;
+				    sign := eq :: !sign;
+				    menv := (tv,new) :: !menv;
+				    new
+				end)
+		   else ty
+	       | VARty _ => raise Incomplete  (* OPEN, OVLD*, LBOUND *)
+	       | CONty(tyc,args) => CONty(tyc, map abs args)
+	       | MARKty(ty,_) => abs ty
+	       | _ => raise Incomplete  (* WILDCARDty, IBOUND, POLYty, UNDEFty *)
+	val body = abs ty
+     in if !index = 0 then NONE
+	else SOME(POLYty{sign = rev(!sign),
+			 tyfun = TYFUN{arity = !index, body = body}},
+		  rev(map #1 (!menv)))
+    end
+    handle Incomplete => NONE
+
 
 (* generalizePat : pat * tyvar list * occ * bool * region -> tyvar list *)
 (* (if generalize is true?) collects the type metavariables that were generalized
@@ -856,8 +904,10 @@ and decType0 (decl, occ, region) : dec =
                  each RVB is UNDEFty, though this does not matter since we don't
                  use that type and the typ field  will be assigned the inferred type. *)
 
-	       (* preType : rvb -> (unit -> exp) *)
-	   let fun preType(rvb as RVB{var=V.VALvar{typ,...},exp,resultty,tyvars}) =
+	       (* preType : rvb -> (unit -> exp) * (ty * tyvar list) option
+		* The second result is SOME(funty, btvs) if the var is given a
+		* polymorphic type for polymorphic recursion (see polyRecType). *)
+	   let fun preType(rvb as RVB{var=var as V.VALvar{typ,...},exp,resultty,tyvars}) =
                    let val domainty = mkMETAty () (* mkMETAtyBounded(OC.lamdepth occ) *) (* lamdepth = infinity *)
 		       val rangety = (* mkMETAty () *) mkMETAtyBounded(OC.lamdepth occ + 1) (* lamdepth = infinity *)
 		       val funty = domainty --> rangety  (* the inferred type of var *)
@@ -933,13 +983,31 @@ and decType0 (decl, occ, region) : dec =
 			       in (fn () => CONSTRAINTexp (typeExp (), constraintTy))
 			      end)
 			| pre _ = bug "typecheck.823"
-                    in pre (exp, region)
+
+		       val typeExp = pre (exp, region)
+
+		       (* Polymorphic recursion: if the type of the function has been
+			* completely determined by explicit type constraints (e.g.,
+			* "val rec f : 'a t -> int = fn ..."), then we assign the
+			* generalized type to var while type checking the bodies of the
+			* declaration, so that recursive occurrences of var can be
+			* instantiated at different types. The monomorphic funty is
+			* restored before the final generalization in genType. *)
+		       val polyInfo =
+			   case polyRecType (funty, !tyvars)
+			     of SOME (polyTy, btvs) =>
+				  (dbsaynl ("preType: polymorphic recursion for "
+					    ^ V.toString var);
+				   typ := polyTy;
+				   SOME (funty, btvs))
+			      | NONE => NONE
+                    in (typeExp, polyInfo)
                    end
 	         | preType _ = bug "preType -- arg not RVB"
 
 	      (* Second, go through and type-check the right-hand-side
 	         expressions (function bodies) *)
-	       fun typeRVB (RVB {var as V.VALvar{typ,...}, resultty, tyvars, ...}, typeRHS) =
+	       fun typeRVB (RVB {var as V.VALvar{typ,...}, resultty, tyvars, ...}, (typeRHS, _)) =
 		   let val typedRHS = typeRHS ()
 		      (* finish typing the rhs fun exp -- this can affect var typ through
                        * unification via the rangety metavariable *)
@@ -947,8 +1015,20 @@ and decType0 (decl, occ, region) : dec =
 		   end
 
                (* this will set the typ and btvs fields of the var, if generalized *)
-	       fun genType (RVB{var,tyvars, ...}) =
-		   ignore (generalizeTy (var, !tyvars, occ, true, region))
+	       fun genType (RVB{var as V.VALvar{typ,...},tyvars, ...}, (_, polyInfo)) =
+		   (case polyInfo
+		      of NONE => ignore (generalizeTy (var, !tyvars, occ, true, region))
+		       | SOME (monoTy, btvs) =>
+			   (* polymorphic recursion: restore the monomorphic type before
+			    * generalizing; the result must agree with the polymorphic
+			    * type assumed for the recursive occurrences. *)
+			   let val _ = typ := monoTy
+			       val btvs' = generalizeTy (var, !tyvars, occ, true, region)
+			    in if anyErrors () orelse ListPair.allEq eqTyvar (btvs, btvs')
+			       then ()
+			       else bug "genType: polymorphic recursion btvs mismatch"
+			   end)
+  	         | genType _ = bug "genType -- arg not RVB"
 
 	       val _ = dbsaynl ">>> decType0: VALRECdec"
 
@@ -956,7 +1036,7 @@ and decType0 (decl, occ, region) : dec =
 		   (* pre-type the rvbs, unifying with fun arg pats and constraints *)
                val typedRVBs = ListPair.map typeRVB (rvbs, rhsTypings)
 		   (* type the rvbs rhs expressions, which can affect var type through unification *)
-	       val _ = app genType typedRVBs
+	       val _ = ListPair.app genType (typedRVBs, rhsTypings)
                    (* Lastly, apply genType to generalize the var typ *)
 	    in dbsaynl "<<< decType0: VALRECdec";
 	       VALRECdec typedRVBs

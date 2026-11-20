@@ -635,6 +635,73 @@ fun genintinfswitch (subject: lexp, cases, default) =
  *   val mkBnd : DI.depth -> B.binding -> L.lexp                           *
  *                                                                         *
  ***************************************************************************)
+(* Polymorphic recursion support.
+ * When the bodies of a val rec declaration are being translated, the (fresh)
+ * lvars of the recursively defined functions are mapped to a polyRecInfo
+ * record.  An occurrence of such a function whose type arguments are exactly
+ * the function's own bound type variables (the "identity" instantiation, which is
+ * the only kind of recursive occurrence possible without polymorphic recursion)
+ * is translated to a reference to the monomorphic FIX-bound lvar.  Any other
+ * occurrence (polymorphic recursion) is translated as a type application of
+ * the polymorphic version of the declaration, which is obtained by applying the
+ * recursive functor
+ *
+ *    polyLvar : unit -> (forall groupTvs . <fns>)
+ *
+ * to unit.  The polyLvar binding is only generated if the used flag is set (see
+ * transRVBs).
+ *   polyLvar : the lvar for the recursive functor that produces the polymorphic version
+ *   index    : position of the function in the tuple of functions (NONE if there
+ *              is only one function in the declaration and no tuple)
+ *   btvs     : the bound (generalized) type variables of this function
+ *   groupTvs : the bound type variables of the entire declaration (a superset of btvs)
+ *   used     : set when a polymorphically recursive occurrence has been translated *)
+type polyRecInfo = {polyLvar: LV.lvar, index: int option, btvs: T.tyvar list,
+		    groupTvs: T.tyvar list, used: bool ref}
+
+val polyRecEnv : polyRecInfo LV.Map.map ref = ref LV.Map.empty
+
+(* isIdentityInst : T.ty list * T.tyvar list -> bool
+ * are the instantiation types exactly the tyvars btvs (in order)? *)
+fun isIdentityInst (tys, btvs) =
+    ListPair.allEq
+      (fn (ty, tv) => (case TU.prune ty of T.VARty tv' => TU.eqTyvar (tv, tv') | _ => false))
+      (tys, btvs)
+
+(* mkPolyRecOcc : DA.access * T.ty list * DI.depth -> lexp option
+ * Translate an occurrence of a val rec bound function within the bodies of its
+ * own declaration (see polyRecEnv above).  Returns NONE if the variable is not a
+ * function currently being defined by a val rec. *)
+fun mkPolyRecOcc (DA.LVAR lvar, tys, d) =
+      (case LV.Map.find (!polyRecEnv, lvar)
+	 of NONE => NONE
+	  | SOME {polyLvar, index, btvs, groupTvs, used} =>
+	      if length tys <> length btvs
+	      then bug "mkPolyRecOcc: wrong number of type arguments"
+	      else if isIdentityInst (tys, btvs)
+	      then SOME (VAR lvar)  (* ordinary (monomorphic) recursive occurrence *)
+	      else let val tycs = mkTyargs (groupTvs, btvs, LB.tcc_void,
+					    (fn (k,_) => toTyc d (List.nth (tys, k))))
+		       val polyFns = TAPP (APP (VAR polyLvar, unitLexp), tycs)
+		    in dbsaysnl ["### mkPolyRecOcc: polymorphic recursion ", LV.toString lvar];
+		       used := true;
+		       SOME (case index
+			       of NONE => polyFns
+				| SOME i => SELECT (i, polyFns))
+		   end)
+  | mkPolyRecOcc _ = NONE
+
+(* withPolyRecEnv : (LV.lvar * polyRecInfo) list * (unit -> 'a) -> 'a
+ * perform a translation with the given lvars bound in polyRecEnv *)
+fun withPolyRecEnv (bindings, transfn) =
+    let val saved = !polyRecEnv
+	val _ = polyRecEnv := foldl (fn ((lv, info), env) => LV.Map.insert (env, lv, info))
+				    saved bindings
+	val result = transfn () handle exn => (polyRecEnv := saved; raise exn)
+     in polyRecEnv := saved;
+	result
+    end
+
 (* [KM???] mkVar is calling transAccess, which just drops the prim!!! *)
 fun mkVar (V.VALvar{access, typ, path, ...}, d) =
       VAR (transAccess(access, toLty d (!typ), getNameOp path))
@@ -722,8 +789,12 @@ fun mkVE (e as V.VALvar { typ, prim = PrimopId.Prim p, ... }, tys, d) =
        case tys
         of [] => (dbsaysnl ["### mkVE[no poly]: ", V.toString var, " ", DA.prAcc(V.varAccess var)];
 		  mkVar (var, d))
-         | _ => (dbsaysnl ["### mkVE[poly]: ", V.toString var, " ", DA.prAcc(V.varAccess var)];
-		 TAPP(mkVar(var, d), map (toTyc d) tys)))
+         | _ =>
+	   (case mkPolyRecOcc (access, tys, d)
+	      of SOME lexp => lexp
+	       | NONE =>
+		   (dbsaysnl ["### mkVE[poly]: ", V.toString var, " ", DA.prAcc(V.varAccess var)];
+		    TAPP(mkVar(var, d), map (toTyc d) tys))))
                  (* dbm: when does this second case occur? (e.g. mctests/mlr/t5.sml) *)
   | mkVE _ = bug "non VALvar passed to mkVE"
 
@@ -901,6 +972,34 @@ and transVBs (vbs, d) =
    val fr = let val rec f = fn x => x in f    (fr : All 'a . 'a -> 'a)
     val f' = fr
 *)
+(* polyRecWrap : LV.lvar * bool * LT.tkind list * LT.lty * lexp -> lexp
+ * Wrap the type abstraction around the FIX expression (fixLexp) for a polymorphic
+ * val rec declaration. The FIX is translated at TFN depth d+1, and monoLty is its
+ * type (at depth d+1).  If there are no polymorphically recursive occurrences
+ * (used = false), the result is just
+ *
+ *     TFN(tks, fixLexp)
+ *
+ * Otherwise, the polymorphically recursive occurrences in fixLexp refer to polyLvar
+ * (see mkPolyRecOcc), which is bound to a recursive functor that produces the
+ * polymorphic version of the declaration:
+ *
+ *     FIX polyLvar = FN(_ : unit, TFN(tks, fixLexp))
+ *      in APP(polyLvar, ())
+ *
+ * The functor is needed because FLINT type abstractions (TFN) cannot be
+ * recursive, while FIX can only bind (value) functions or functors.  Since the
+ * result of the function is polymorphic, polyLvar is a functor (CC_FCT). *)
+and polyRecWrap (polyLvar, used, tks, monoLty, fixLexp) =
+    if used
+    then let val argLvar = mkv ()
+	     val polyLty = LD.ltc_ppoly (tks, monoLty)
+	  in FIX ([polyLvar], [LD.ltc_pfct (LB.ltc_unit, polyLty)],
+		  [FN (argLvar, LB.ltc_unit, TFN (tks, fixLexp))],
+		  APP (VAR polyLvar, unitLexp))
+	 end
+    else TFN (tks, fixLexp)
+
 and transRVBs (nil, _) = bug "transRVBs - no rbv"
   | transRVBs ([RVB{var as V.VALvar{access=DA.LVAR defLvar, typ, btvs,...}, exp,...}], d) =
     (* single function defn, binding defLvar, no FIX needed if not recursive (occurs = false) *)
@@ -919,14 +1018,19 @@ and transRVBs (nil, _) = bug "transRVBs - no rbv"
 		val monoType = TU.applyPoly (!typ, polyTyArgs)  (* de-polymorphize !typ, instantiating with LBOUNDS *)
 		val lty = toLty (if poly then d+1 else d) monoType
 		    (* was d+1; changed to d to fix utils/t1.sml bug. WRONG PLACE! *)
+		val polyLvar = mkv ()  (* for polymorphic recursion, see polyRecEnv *)
+		val used = ref false
 		val lexp =  (* translate exp without type abstraction, but with LBOUND instantiated boundTvs *)
 		    if poly
-		    then setBoundTyvars(d, boundTvs, (fn () => mkExp (exp, d+1)))
+		    then withPolyRecEnv
+			   ([(newDefLvar, {polyLvar = polyLvar, index = NONE, btvs = boundTvs,
+					   groupTvs = boundTvs, used = used})],
+			    (fn () => setBoundTyvars(d, boundTvs, (fn () => mkExp (exp, d+1)))))
 		    else mkExp (exp, d)
 		val fixLexp = FIX([newDefLvar], [lty], [lexp], VAR newDefLvar)
 		val rvbLexp =
 		    if poly
-		    then TFN(LD.tkc_arg numBoundTvs, fixLexp)      (* <=== BUG! *)
+		    then polyRecWrap (polyLvar, !used, LD.tkc_arg numBoundTvs, lty, fixLexp)  (* <=== BUG! *)
 		    else fixLexp
 	    in dbsaynl "<<< transRVBs[rec]"; (fn body => LET (defLvar, rvbLexp, body))
 	    end
@@ -964,9 +1068,20 @@ and transRVBs (nil, _) = bug "transRVBs - no rbv"
 	    mkTyargs (boundTvs, btvs, LB.tcc_void, (fn (k,_) => LD.tcc_var(1,k)))
 
 	val rvbLexp =
-	    let val lexps =
+	    let val polyLvar = mkv ()  (* for polymorphic recursion, see polyRecEnv *)
+		val used = ref false
+		fun mkBindings (lvar::lvars, btvs::btvss, i) =
+		      (lvar, {polyLvar = polyLvar, index = SOME i, btvs = btvs,
+			      groupTvs = boundTvs, used = used})
+		      :: mkBindings (lvars, btvss, i+1)
+		  | mkBindings _ = nil
+		val polyRecBindings = mkBindings (newLvars, btvss, 0)
+		val lexps =
 		    if isPoly
-		    then setBoundTyvars (d, boundTvs, (fn () => map (fn e => mkExp (e, d+1)) exps))
+		    then withPolyRecEnv
+			   (polyRecBindings,
+			    (fn () => setBoundTyvars (d, boundTvs,
+						      (fn () => map (fn e => mkExp (e, d+1)) exps))))
 		    else map (fn e => mkExp (e, d)) exps
 		      (* no polymorphism _within_ FIX, so no TFN is introduced *)
 		val ltys = ListPair.map
@@ -976,7 +1091,8 @@ and transRVBs (nil, _) = bug "transRVBs - no rbv"
 			     (typs, btvss)
 	        val fixLexp = FIX(newLvars, ltys, lexps, fntupleLexp)
 	     in if isPoly
-		then TFN (LD.tkc_arg numBoundTvs, fixLexp)
+		then polyRecWrap (polyLvar, !used, LD.tkc_arg numBoundTvs,
+				  LD.ltc_tuple ltys, fixLexp)
 		else fixLexp
 	    end
 
